@@ -43,3 +43,10 @@ This step takes about 4-5 minutes.  The type field in the table contains the ele
 About 200 lines have no label at this point.  This heuristic improves with the number
 of closed elevation lines.  With Harn being an island this will eventually decrease
 when all lines will be closed.
+
+```
+python ~/bin/geo_coast.py -t xyz -d user:password@dbname
+```
+
+will detect all closed coastlines (including inland islands) and remove rivers by
+a simple heuristic.  The coasts are not considered by `geo_elevation.py` yet.
