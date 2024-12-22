@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-gisproximity. Evaluates elevation labels when close to a contour and
+Evaluates elevation labels when close to a contour and
 attaches the elevation to the contour line in output as name. Includes
 heuristics for connected lines and rings.
 """
