@@ -58,4 +58,5 @@ python ~/bin/geo_roads.py -t xyz -d user:password@dbname
 will connect towns (and such) and roads by modifying the latter. The heuristics are:
 * When close enough, move the road to attach to a location
 * When road ends are close enough to another road, move the endpoint onto that road.
+
 Note that this still leaves a few criss-crossing roads.
