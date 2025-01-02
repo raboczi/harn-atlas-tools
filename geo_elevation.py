@@ -134,7 +134,7 @@ def main():
     cursor.execute(f"""
         DELETE FROM {args.table}_lines
         WHERE type LIKE '%CONTOURS%' AND ST_NumPoints(wkb_geometry) < 4
-        OR ST_Length(wkb_geometry) < {EPSL}""")
+          OR ST_Length(wkb_geometry) < {EPSL}""")
 
     print("Validate lines")
     cursor.execute(f"""
@@ -162,8 +162,8 @@ def main():
     # Connect
     print("Connect unlabeled and like-labelled lines")
     cursor.execute(f"""
-        SELECT id, type FROM {args.table}_lines WHERE type
-        LIKE '%00%' AND NOT ST_IsClosed(wkb_geometry) ORDER BY id""")
+        SELECT id, type FROM {args.table}_lines
+        WHERE type LIKE '%00%' AND NOT ST_IsClosed(wkb_geometry) ORDER BY id""")
     lines = cursor.fetchall()
     deleted = []
     for line in lines:

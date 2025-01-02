@@ -7,9 +7,9 @@ import sys
 import argparse
 import psycopg2
 
-EPST = 0.1
-EPSL = 0.007
-EPSB = 0.01
+EPST = 0.1 # Heuristic to determine river
+EPSL = 0.007 # distance considered connected
+EPSB = 0.01 # buffer radius to weed out rivers
 
 def shortest_connect(table, cursor, line_id):
     """
@@ -40,7 +40,48 @@ def shortest_connect(table, cursor, line_id):
     ret = cursor.fetchall()
     return ret
 
-def make_valid(table, cursor, merge, line_id):
+def verbosity(verb, out):
+    """Verbosity."""
+    if verb:
+        print(out)
+
+def extract_lake(table, cursor, name, height, inner_point):
+    """Extract a specific lake by inner point and update."""
+    print(f"Special: {name}")
+    cursor.execute(f"""
+        UPDATE {table}
+        SET type = {height}, name = 'LAKE/{name}'
+        WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
+          ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('{inner_point}', 4326))""")
+
+def make_valid_polys(table, cursor, merge, line_id):
+    """Removes the smallest segments until only disjoint polygons remain. Update."""
+    multi_polys = True
+    while multi_polys:
+        sql_array = "'" + "'::geometry, '".join(merge) + "'::geometry"
+        cursor.execute(f"""
+            SELECT geo, ST_Length(geo) FROM (
+              SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
+            AS lines (geo) ORDER BY ST_Length(geo) DESC""")
+        merge = cursor.fetchall()
+        if merge[-1][1] > EPSB:
+            break
+        merge = [m[0] for m in merge[:-1]]
+
+    if len(merge) == 1:
+        cursor.execute(f"""
+            UPDATE {table}
+            SET name = 'nameless', type = '/COASTLINE/tmp-lake', wkb_geometry = '{merge[0][0]}'::geometry
+            WHERE id = {line_id}""")
+    else:
+        for poly in merge:
+            cursor.execute(f"""
+                INSERT INTO {table} (name, type, wkb_geometry)
+                VALUES ('nameless', '/COASTLINE/tmp-lake', '{poly[0]}'::geometry)""")
+        cursor.execute(f"""
+            DELETE FROM {table} WHERE id = {line_id}""")
+
+def make_valid_line(table, cursor, merge, line_id):
     """Removes the smallest segments until a single line remains. Update."""
     multi_line = True
     while multi_line:
@@ -84,7 +125,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
-        SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%COASTLINE%'""")
+        SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%COASTLINE%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
 
     # Remove pathological lines
@@ -99,7 +140,7 @@ def main():
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%COASTLINE%'""")
     lines = cursor.fetchall()
     for line in lines:
-        make_valid(f"{args.table}_lines", cursor, [line[1]], line[0])
+        make_valid_line(f"{args.table}_lines", cursor, [line[1]], line[0])
 
     # Connect
     print("Connect unlabeled and like-labelled lines")
@@ -108,25 +149,59 @@ def main():
         ORDER BY id""")
     lines = cursor.fetchall()
     deleted = []
+
     for line in lines:
         if line[0] in deleted:
             continue
-        if args.verbose:
-            print(f"- connect {line[0]}")
+        verbosity(args.verbose, f"- connect {line[0]}")
         connect = shortest_connect(f"{args.table}_lines", cursor, line[0])
         while len(connect) > 0:
-            if args.verbose:
-                print(f"- - with {connect[0][0]}")
-            make_valid(f"{args.table}_lines", cursor, connect[0][2:], line[0])
+            verbosity(args.verbose, f"- - with {connect[0][0]}")
+            make_valid_line(f"{args.table}_lines", cursor, connect[0][2:], line[0])
             if line[0] == connect[0][0]:
                 break
-            if args.verbose:
-                print(f"- - remove {connect[0][0]}")
+            verbosity(args.verbose, f"- - remove {connect[0][0]}")
             cursor.execute(f"""
                 DELETE FROM {args.table}_lines WHERE id = {connect[0][0]}""")
             deleted.append(connect[0][0])
             connect = shortest_connect(f"{args.table}_lines", cursor, line[0])
 
+    # Islands
+    print(f"Special: Melderyn Isle")
+    # Make bigger to "overgrow" rivers than smaller to create union with reality => take boundary
+    cursor.execute(f"""
+        SELECT id, geo FROM (
+          SELECT id, (ST_Dump(ST_Boundary(ST_Union(
+                  ST_Buffer(ST_Buffer(ST_MakePolygon(wkb_geometry), {EPSB}), -2 * {EPSB}),
+                      ST_MakePolygon(wkb_geometry))))).geom
+          FROM {args.table}_lines
+          WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
+            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-16 41)', 4326)))
+        AS lines (id, geo)""")
+    poly = cursor.fetchall()
+    verbosity(args.verbose, f"- {poly[0][0]}")
+    make_valid_line(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
+
+    # Lakes
+    # Make smaller to "dry" rivers than bigger to create intersection with reality => take boundary
+    cursor.execute(f"""
+        SELECT id, geo FROM (
+          SELECT id, (ST_Dump(ST_Boundary(ST_Intersection(
+                  ST_Buffer(ST_Buffer(ST_MakePolygon(wkb_geometry), -{EPSB}), 2 * {EPSB}),
+                      ST_MakePolygon(wkb_geometry))))).geom
+          FROM {args.table}_lines
+          WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%')
+        AS lines (id, geo)
+        WHERE NOT ST_IsEmpty(geo)""")
+    poly = cursor.fetchall()
+    print(f"Lake potential lines: {len(poly)}")
+    make_valid_polys(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
+
+    extract_lake(f"{args.table}_lines", cursor, "Arain", 4180, "POINT(-18.4 46.6)")
+    extract_lake(f"{args.table}_lines", cursor, "Tontury", 520, "POINT(-18.5 45.2)")
+
+    # Temporary, until everything within Harn that is not a lake is dumped
+    print(f"Elongated areas are rivers")
     cursor.execute(f"""
         UPDATE {args.table}_lines
         SET type = 'RIVER'
@@ -134,23 +209,7 @@ def main():
           ST_IsEmpty(ST_Buffer(ST_MakePolygon(wkb_geometry),
             -(ST_MinimumBoundingRadius(ST_MakePolygon(wkb_geometry))).radius * {EPST}))""")
 
-    # Melderyn
-    print(f"Special: Melderyn Isle")
-    # Make smaller by 2*EPSB and then create union
-    cursor.execute(f"""
-        SELECT id, geo FROM (
-          SELECT id, (ST_Dump(ST_Boundary(ST_Union(ST_Buffer(ST_Buffer(ST_MakePolygon(wkb_geometry), {EPSB}), -2 * {EPSB}),
-            ST_MakePolygon(wkb_geometry))))).geom
-          FROM {args.table}_lines
-          WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
-            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-16 41)', 4326)))
-        AS lines (id, geo)""")
-    poly = cursor.fetchall()
-    if args.verbose:
-        print(f"- {poly[0][0]}")
-    make_valid(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
-
-    # All (non-distorted) closed coast
+    # All (non-distorted) closed is coast
     cursor.execute(f"""
         UPDATE {args.table}_lines
         SET type = '0'

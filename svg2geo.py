@@ -7,7 +7,7 @@ import re
 import math
 import sys
 import argparse
-from xml.etree import cElementTree
+from xml.etree import ElementTree
 import fiona
 from fiona.crs import CRS
 import numpy
@@ -26,9 +26,11 @@ class SID:
         """Get sid."""
         return cls.sid
 
+STYLES = {'-': '-'}
 SYMBOLS = {}
 SCHEMA_LINES = {'geometry': 'LineString', 'properties':
-                {'id': 'int', 'type': 'str', 'len': 'int', 'name': 'str', 'svgid': 'str'}}
+                {'id': 'int', 'type': 'str', 'len': 'int', 'name': 'str', 'svgid': 'str',
+                 'style': 'str'}}
 SCHEMA_POINTS = {'geometry': 'Point', 'properties': {'id': 'int', 'type': 'str',
                                                      'name': 'str', 'svgid': 'str'}}
 SCHEMA_POLYGONS = {'geometry': 'Polygon', 'properties': {'id': 'int', 'type': 'str',
@@ -319,7 +321,8 @@ def out_line(line, typ, name, out_lines_file, elem):
         out_lines_file.write(
             {'geometry': mapping(line_string),
              'properties': {'id': SID.get_sid(), 'type': typ, 'len': len(line),
-                            'name':name, 'svgid': elem.attrib.get('id', '-')}})
+                            'name': name, 'svgid': elem.attrib.get('id', '-'),
+                            'style': STYLES[elem.attrib.get('class', '-')]}})
 
 def parse_polygon(typ, elem, out_polygon_file):
     """Parse polygon and write to file."""
@@ -377,7 +380,8 @@ def parse_line(typ, elem, out_lines_file):
         out_lines_file.write(
             {'geometry': mapping(line_string),
              'properties': {'id': SID.get_sid(), 'type': typ,
-                            'len': len(line), 'name': name, 'svgid': name}})
+                            'len': len(line), 'name': name, 'svgid': name,
+                            'style': STYLES[elem.attrib.get('class', '-')]}})
     else:
         print(f"pathological:{SID.get_sid()}")
 
@@ -388,6 +392,28 @@ def parse_symbol(args, elem):
               f"and data-name={elem.attrib.get('data-name', '')}")
     if elem.attrib.get('id', '-') != '-':
         SYMBOLS[elem.attrib.get('id', '')] = get_data_name(elem)
+
+def parse_style(args, text):
+    """Parse all styles. Poor man's parsing."""
+    keys = []
+    for line in text.splitlines():
+        line = line.strip(' ')
+        if line == "":
+            pass
+        elif line.startswith("."):
+            keys = [key[:-1] if key[-1] == ',' else key for key in line.split(' ')[:-1]]
+            if args.verbose:
+                print(f"parsing current style keys {keys}")
+        elif line.startswith("}"):
+            pass
+        else:
+            if args.verbose:
+                print(f"parsing current style value {line}")
+            for key in keys:
+                if key[1:] in STYLES:
+                    STYLES[key[1:]] += line
+                else:
+                    STYLES[key[1:]] = line
 
 def parse(args, name, root, out_polygon_file, out_point_file, out_lines_file):
     """Parse and write everything to the files."""
@@ -429,7 +455,7 @@ def parse(args, name, root, out_polygon_file, out_point_file, out_lines_file):
         elif elem.tag.endswith('linearGradient'):
             pass
         elif elem.tag.endswith('style'):
-            pass
+            parse_style(args, elem.text)
         elif elem.tag.endswith('image'):
             pass
         else:
@@ -491,11 +517,11 @@ def main():
             print(svg, file=svg_test_out_file)
         with fiona.open("unittest.json", 'w', 'GeoJSON', schema=SCHEMA_LINES,
                         crs=CRS.from_epsg(4326)) as json_test_out_file:
-            elem = cElementTree.fromstring(svg)[0]
+            elem = ElementTree.fromstring(svg)[0]
             parse_path("type", elem, json_test_out_file, None)
 
     else:
-        root = cElementTree.parse(args.infile).getroot()
+        root = ElementTree.parse(args.infile).getroot()
         if args.outfile.endswith('.shp'):
             if args.verbose:
                 print("output ESRI shapefile")
