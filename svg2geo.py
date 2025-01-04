@@ -98,7 +98,7 @@ def get_href(typ, elem):
     """Get href and replace with used symbol."""
     if elem.attrib.get('{http://www.w3.org/1999/xlink}href', '-')[1:] in SYMBOLS:
         return SYMBOLS[elem.attrib.get('{http://www.w3.org/1999/xlink}href', '')[1:]]
-    return typ
+    return [typ, [0, 0]]
 
 def get_data_name(elem):
     """Get the data-name attribute or the id, if data-name doesn't exist."""
@@ -129,10 +129,10 @@ def parse_point(typ, elem, out_point_file):
         print(f"{elem.tag} shouldn't be here")
         return
     typ = get_href(typ, elem)
-    pointstring = Point(transform(mat, x_c + w_c/2., y_c + h_c/2.))
+    pointstring = Point(transform(mat, x_c + (w_c + typ[1][0])/2., y_c + (h_c + typ[1][1])/2.))
     SID.inc_sid()
     out_point_file.write({'geometry': mapping(pointstring),
-                          'properties': {'id': SID.get_sid(), 'type': typ,
+                          'properties': {'id': SID.get_sid(), 'type': typ[0],
                                          'name': name, 'svgid': elem.attrib.get('id', '-')}})
 
 def parse_path(typ, elem, out_lines_file, out_point_file):
@@ -320,7 +320,7 @@ def out_line(line, typ, name, out_lines_file, elem):
         SID.inc_sid()
         out_lines_file.write(
             {'geometry': mapping(line_string),
-             'properties': {'id': SID.get_sid(), 'type': typ, 'len': len(line),
+             'properties': {'id': SID.get_sid(), 'type': typ[0], 'len': len(line),
                             'name': name, 'svgid': elem.attrib.get('id', '-'),
                             'style': STYLES[elem.attrib.get('class', '-')]}})
 
@@ -343,7 +343,7 @@ def parse_polygon(typ, elem, out_polygon_file):
         polygon = Polygon(line)
         SID.inc_sid()
         out_polygon_file.write({'geometry': mapping(polygon),
-                                'properties': {'id': SID.get_sid(), 'type': typ,
+                                'properties': {'id': SID.get_sid(), 'type': typ[0],
                                                'name': name, 'svgid': elem.attrib.get('id', '-')}})
     else:
         print(f"pathological:{SID.get_sid()}")
@@ -379,7 +379,7 @@ def parse_line(typ, elem, out_lines_file):
         SID.inc_sid()
         out_lines_file.write(
             {'geometry': mapping(line_string),
-             'properties': {'id': SID.get_sid(), 'type': typ,
+             'properties': {'id': SID.get_sid(), 'type': typ[0],
                             'len': len(line), 'name': name, 'svgid': name,
                             'style': STYLES[elem.attrib.get('class', '-')]}})
     else:
@@ -391,7 +391,8 @@ def parse_symbol(args, elem):
         print(f"parsing {elem.tag} with id={elem.attrib.get('id', '')} " + \
               f"and data-name={elem.attrib.get('data-name', '')}")
     if elem.attrib.get('id', '-') != '-':
-        SYMBOLS[elem.attrib.get('id', '')] = get_data_name(elem)
+        viewbox = [float(coord) for coord in elem.attrib.get('viewBox').split()[2:]]
+        SYMBOLS[elem.attrib.get('id', '')] = [get_data_name(elem), viewbox]
 
 def parse_style(args, text):
     """Parse all styles. Poor man's parsing."""
