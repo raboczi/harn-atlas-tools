@@ -76,8 +76,8 @@ def make_valid_polys(table, cursor, merge, line_id):
     else:
         for poly in merge:
             cursor.execute(f"""
-                INSERT INTO {table} (name, type, wkb_geometry)
-                VALUES ('nameless', '/COASTLINE/tmp-lake', '{poly[0]}'::geometry)""")
+                INSERT INTO {table} (id, name, type, wkb_geometry)
+                VALUES (nextval('serial'), 'nameless', '/COASTLINE/tmp-lake', '{poly[0]}'::geometry)""")
         cursor.execute(f"""
             DELETE FROM {table} WHERE id = {line_id}""")
 
@@ -125,6 +125,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
+        CREATE TEMP SEQUENCE IF NOT EXISTS serial START 100000;
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%COASTLINE%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
 

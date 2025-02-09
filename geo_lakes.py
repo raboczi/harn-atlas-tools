@@ -64,6 +64,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
+        ALTER TABLE xx_lines ALTER id SET NOT NULL;
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%LAKES%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
 
