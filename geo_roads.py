@@ -37,11 +37,10 @@ def main():
     """Main method."""
     parser = argparse.ArgumentParser(
         prog=sys.argv[0],
-        description='Load GEOJSON elevation lines and points with elevation labels. ' +
-        'Tries to assign the correct labels to the elevation lines')
+        description='Create roads from postgis database.')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname')
+        help='db to connect to user:password@dbname:host')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -51,15 +50,16 @@ def main():
     args = parser.parse_args()
 
     conn = psycopg2.connect(
-        database=f"{args.db.split('@')[1]}",
         user=f"{args.db.split('@')[0].split(':')[0]}",
-        password=f"{args.db.split('@')[0].split(':')[1]}",)
+        password=f"{args.db.split('@')[0].split(':')[1]}",
+        database=f"{args.db.split('@')[1].split(':')[0]}",
+        host=f"{args.db.split('@')[1].split(':')[1]}")
     cursor = conn.cursor()
 
     # Initialize
     cursor.execute(f"""
         CREATE TEMP SEQUENCE IF NOT EXISTS serial START 100000;
-        ALTER TABLE {args_table}_lines ALTER id SET NOT NULL;
+        ALTER TABLE {args.table}_lines ALTER id SET NOT NULL;
         DELETE FROM {args.table}_lines WHERE type = 'ROUTE';
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%ROADS%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")

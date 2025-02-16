@@ -105,11 +105,10 @@ def main():
     """Main method."""
     parser = argparse.ArgumentParser(
         prog=sys.argv[0],
-        description='Load GEOJSON elevation lines and points with elevation labels. ' +
-        'Tries to assign the correct labels to the elevation lines')
+        description='Create elevation lines from postgis database.')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname')
+        help='db to connect to user:password@dbname:host')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -119,9 +118,10 @@ def main():
     args = parser.parse_args()
 
     conn = psycopg2.connect(
-        database=f"{args.db.split('@')[1]}",
         user=f"{args.db.split('@')[0].split(':')[0]}",
-        password=f"{args.db.split('@')[0].split(':')[1]}",)
+        password=f"{args.db.split('@')[0].split(':')[1]}",
+        database=f"{args.db.split('@')[1].split(':')[0]}",
+        host=f"{args.db.split('@')[1].split(':')[1]}")
     cursor = conn.cursor()
 
     # Initialize

@@ -44,15 +44,18 @@ GeoJson or a lot of other things. A great tool from a great toolset.
 
 ## Elevation
 
-    python geo_elevation.py -t xyz -d user:password@dbname
+    python geo_elevation.py -t xyz -d user:password@dbname:host
 
 The next step extracts the elevation lines and assigns height labels
 to the based on the following heuristics:
 
 * Any label satisfying the regex \[\^1-9\]\(\[1-9\]\[05\]\|5\)00 is a height label.
   If you are into this, don't copy this from markdown.
+
 * the largest number of close (EPSP) labels wins
+
 * connect all endpoints of lines within EPSL
+
 * All unlabeled rings around peaks go in 500ft steps to the outermost labeled ring
 
 This step takes about 4-5 minutes.  The type field in the table
@@ -66,7 +69,7 @@ will be closed.
 Effectively, this is the 0 elevation line and this is how it will be
 treated in later steps.
 
-    python geo_coast.py -t xyz -d user:password@dbname
+    python geo_coast.py -t xyz -d user:password@dbname:host
 
 will detect all closed coastlines (including inland islands) and
 remove rivers by a simple heuristic.  The coasts are not considered by
@@ -78,7 +81,7 @@ connected to the coastline; Arain & Tontury currently.
 This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
 
-    python ~/bin/geo_lakes.py -t xyz -d user:password@dbname
+    python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host
 
 ## Roads
 
@@ -89,7 +92,7 @@ point the runtime is about a minute, but it still produces some small
 artifacts.  I.e. some roads spring up that would be covered by a drawn
 road.  Cleaning this up requires another algorithm step.
 
-    python geo_roads.py -t xyz -d user:password@dbname
+    python geo_roads.py -t xyz -d user:password@dbname:host
 
 will connect towns (and such) and roads by modifying both lines and
 points tables.  The corrected roads appear as *type = 'ROUTE'*.  The

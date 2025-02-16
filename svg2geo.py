@@ -42,8 +42,8 @@ NUM6 = NUM4 + NUM2
 
 def transform(mat, x_c, y_c):
     """This is where the projection is 'hidden'."""
-    pts = ((mat[0]*x_c + mat[2]*y_c + mat[4]) / 11161. * 15 - 30,
-           50 - (mat[1]*x_c + mat[3]*y_c + mat[5]) / 7921. * 10)
+    pts = ((mat[0]*x_c + mat[2]*y_c + mat[4] - SIZEMINX) / (SIZEMAXX - SIZEMINX) * 14 - 29,
+           50 - (mat[1]*x_c + mat[3]*y_c + mat[5] - SIZEMINY) / (SIZEMAXY - SIZEMINY) * 10)
     return pts
 
 def attr2transform(attr):
@@ -522,6 +522,15 @@ def main():
 
     else:
         root = ElementTree.parse(args.infile).getroot()
+        el_a1 = root.find(".//*[@data-name='A1']")
+        global SIZEMINX
+        SIZEMINX = float(el_a1.attrib.get('x', 0))
+        global SIZEMINY
+        SIZEMINY = float(el_a1.attrib.get('y', 0))
+        global SIZEMAXX
+        SIZEMAXX = float(el_a1.attrib.get('x', 0)) + 14 * float(el_a1.attrib.get('width', 0))
+        global SIZEMAXY
+        SIZEMAXY = float(el_a1.attrib.get('y', 0)) + 10 * float(el_a1.attrib.get('height', 0))
         if args.outfile.endswith('.shp'):
             if args.verbose:
                 print("output ESRI shapefile")

@@ -104,11 +104,10 @@ def main():
     """Main method."""
     parser = argparse.ArgumentParser(
         prog=sys.argv[0],
-        description='Load GEOJSON elevation lines and points with elevation labels. ' +
-        'Tries to assign the correct labels to the elevation lines')
+        description='Create coast lines from postgis database')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname')
+        help='db to connect to user:password@dbname:host')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -118,9 +117,10 @@ def main():
     args = parser.parse_args()
 
     conn = psycopg2.connect(
-        database=f"{args.db.split('@')[1]}",
         user=f"{args.db.split('@')[0].split(':')[0]}",
-        password=f"{args.db.split('@')[0].split(':')[1]}",)
+        password=f"{args.db.split('@')[0].split(':')[1]}",
+        database=f"{args.db.split('@')[1].split(':')[0]}",
+        host=f"{args.db.split('@')[1].split(':')[1]}")
     cursor = conn.cursor()
 
     # Initialize
@@ -177,7 +177,7 @@ def main():
                       ST_MakePolygon(wkb_geometry))))).geom
           FROM {args.table}_lines
           WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
-            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-16 41)', 4326)))
+            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-15.3 40.33)', 4326)))
         AS lines (id, geo)""")
     poly = cursor.fetchall()
     verbosity(args.verbose, f"- {poly[0][0]}")
@@ -198,8 +198,8 @@ def main():
     print(f"Lake potential lines: {len(poly)}")
     make_valid_polys(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
 
-    extract_lake(f"{args.table}_lines", cursor, "Arain", 4180, "POINT(-18.4 46.6)")
-    extract_lake(f"{args.table}_lines", cursor, "Tontury", 520, "POINT(-18.5 45.2)")
+    extract_lake(f"{args.table}_lines", cursor, "Arain", 4180, "POINT(-17.7 46.6)")
+    extract_lake(f"{args.table}_lines", cursor, "Tontury", 520, "POINT(-17.8 45)")
 
     # Temporary, until everything within Harn that is not a lake is dumped
     print(f"Elongated areas are rivers")
