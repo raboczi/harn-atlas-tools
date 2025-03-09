@@ -1,13 +1,26 @@
 # harn-atlas-tools
 
-A script collection to extract GIS data from Hârn Atlas Map exports.
+A script collection to extract GIS data from Harn Atlas Map exports.
 All scripts take the -v flag.  Scripts that do not completely digest
 all entries usually print the number of remaining lines at the end.
 They will be considered in a later step or, if that proves impossible,
-they need to be eyeballed.  (For a semi-automated step in that
-direction, look at the "named lake" section.
+they need to be eyeballed.
+
+Runtime is an estimate on my PC.
+
+The scripts are not re-entrant, i.e. don't call them a second time on
+the modified dataset.
 
 ## Extraction
+
+For the current export, add
+
+    <g id="uuid-bb7c1ef1-f291-4da3-b491" data-name="Fake">
+      <path class="uuid-6447e0e3-a128-46a8-b849-9533c5245b93" d="M7088,4536L6800,4536L6800,2300L9260,2300L9260,3118"/>
+    </g>
+
+just after the COASTLINE group.  This yields a (fake) cloased
+coastline and benefits vegetation calculation.
 
 The following is the rough procedure to follow:
 
@@ -29,10 +42,13 @@ sure your versions are fairly recent.
 The script now also evaluates style information to be considered in
 heuristics later.
 
+> Runtime: 1 minute
+
 ## DB preparation
 
     ogr2ogr -f PostgreSQL PG:"dbname=dbname host=localhost user=user port=5432 password=password" xyz_lines.json -nln xyz_lines
     ogr2ogr -f PostgreSQL PG:"dbname=dbname host=localhost user=user port=5432 password=password" xyz_pts.json -nln xyz_pts
+    ogr2ogr -f PostgreSQL PG:"dbname=dbname host=localhost user=user port=5432 password=password" xyz_polys.json -nln xyz_polys
 
 Replace `dbname`, `user`, `password`, `xyz` with whatever makes sense
 for you. This will dump the lines into the table `xyz_lines`. After
@@ -42,15 +58,19 @@ only takes about 10 seconds on the same map export as above.
 You can also use ogr2ogr to convert db data into Shapefiles and
 GeoJson or a lot of other things. A great tool from a great toolset.
 
+> Runtime: 1 minute total
+
 ## Elevation
 
     python geo_elevation.py -t xyz -d user:password@dbname:host
 
-The next step extracts the elevation lines and assigns height labels
-to the based on the following heuristics:
+This step extracts the elevation lines and assigns height labels to
+the based on the following heuristics:
 
 * Any label satisfying the regex \[\^1-9\]\(\[1-9\]\[05\]\|5\)00 is a height label.
   If you are into this, don't copy this from markdown.
+
+* Remove one erroneous line
 
 * the largest number of close (EPSP) labels wins
 
@@ -58,11 +78,12 @@ to the based on the following heuristics:
 
 * All unlabeled rings around peaks go in 500ft steps to the outermost labeled ring
 
-This step takes about 4-5 minutes.  The type field in the table
-contains the elevation.  About 200 lines have no label at this point.
-This heuristic improves with the number of closed elevation lines.
-With Harn being an island this will eventually decrease when all lines
-will be closed.
+The type field in the table contains the elevation.  About 200 lines
+have no label at this point.  This heuristic improves with the number
+of closed elevation lines.  With Harn being an island this will
+eventually decrease when all lines will be closed.
+
+> Runtime: 4-5 minutes
 
 ## Coast line
 
@@ -76,12 +97,16 @@ remove rivers by a simple heuristic.  The coasts are not considered by
 `geo_elevation.py` yet. This will also find the big lakes that are
 connected to the coastline; Arain & Tontury currently.
 
+> Runtime: 1 minute
+
 ## Lakes
 
 This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
 
     python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host
+
+> Runtime: 1 minute
 
 ## Roads
 
@@ -106,3 +131,27 @@ algorithm:
 * Remove short end segments from the road network
 
 * Shift close locations onto road network
+
+> Runtime: 1 minute
+
+## Vegetation
+
+Turns the WOODLAND, CROPLAND, HEATH, FOREST, NEEDLELEAF, ALPINE,
+SNOW_x2F_ICE into multipolygons (in the postgis sense).
+
+    python geo_vegetation.py -t xyz -d user:password@dbname:host
+
+Any set at position *n* in this list is reduced by every multipolygon
+at later positions.  I.e. the multipolygons are disjoint.  position
+*0* is going to be the default, filling all land area not filled
+otherwise.
+
+* The above is called "reduce & normalize" in the script
+
+* Vegetation is restricted to land
+
+* Shoal/Reef is restricted to off land
+
+* The results are in the *xyz_polys* table.
+
+> Runtime: 1-3 minutes

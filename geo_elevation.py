@@ -46,7 +46,7 @@ def make_valid(table, cursor, merge, line_id):
     while multi_line:
         sql_array = "'" + "'::geometry, '".join(merge) + "'::geometry"
         cursor.execute(f"""
-            SELECT geo FROM (
+            SELECT ST_AsText(geo) FROM (
               SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
             AS lines (geo) ORDER BY ST_Length(geo) DESC""")
         merge = cursor.fetchall()
@@ -126,7 +126,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
-        ALTER TABLE xx_lines ALTER id SET NOT NULL;
+        ALTER TABLE {args.table}_lines ALTER id SET NOT NULL;
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
 
@@ -137,6 +137,15 @@ def main():
         WHERE type LIKE '%CONTOURS%' AND ST_NumPoints(wkb_geometry) < 4
           OR ST_Length(wkb_geometry) < {EPSL}""")
 
+    # Special corrections
+    print("Remove spurious lines")
+    if args.verbose:
+        print(f"- duplicate at LM5") # delicate
+    approx = 'POLYGON((-17.0025 45.7429,-17.0023 45.7429,-17.0023 45.7426,-17.0025 45.7426,-17.0025 45.7429))'
+    cursor.execute(f"""
+        DELETE FROM {args.table}_lines AS tl
+        WHERE ST_intersects(tl.wkb_geometry, ST_GeomFromText('{approx}', 4326))""")
+    
     print("Validate lines")
     cursor.execute(f"""
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
@@ -214,7 +223,7 @@ def main():
     cursor.execute(f"""
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
     print(f"Remaining lines: {cursor.fetchall()[0][0]}")
-    conn.commit()
+#    conn.commit()
 
 if __name__ == '__main__':
     main()

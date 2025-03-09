@@ -7,9 +7,8 @@ import sys
 import argparse
 import psycopg2
 
-EPST = 0.1 # Heuristic to determine river
 EPSL = 0.007 # distance considered connected
-EPSB = 0.01 # buffer radius to weed out rivers
+EPSB = 0.015 # buffer radius to weed out rivers
 
 def shortest_connect(table, cursor, line_id):
     """
@@ -201,20 +200,34 @@ def main():
     extract_lake(f"{args.table}_lines", cursor, "Arain", 4180, "POINT(-17.7 46.6)")
     extract_lake(f"{args.table}_lines", cursor, "Tontury", 520, "POINT(-17.8 45)")
 
-    # Temporary, until everything within Harn that is not a lake is dumped
-    print(f"Elongated areas are rivers")
-    cursor.execute(f"""
-        UPDATE {args.table}_lines
-        SET type = 'RIVER'
-        WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
-          ST_IsEmpty(ST_Buffer(ST_MakePolygon(wkb_geometry),
-            -(ST_MinimumBoundingRadius(ST_MakePolygon(wkb_geometry))).radius * {EPST}))""")
-
     # All (non-distorted) closed is coast
     cursor.execute(f"""
         UPDATE {args.table}_lines
         SET type = '0'
         WHERE type LIKE '%COASTLINE%' AND ST_IsClosed(wkb_geometry)""")
+
+    # Everything else must be main Harn.
+    print(f"Remainder is Harn")
+    cursor.execute(f"""
+        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry)
+        SELECT
+          nextval('serial'), 'main', '0',
+          ST_ExteriorRing(ST_Buffer(ST_MakePolygon(ST_ExteriorRing(tr.geo)), -{EPSB}))
+        FROM (
+          SELECT tl.geo FROM (
+            SELECT (ST_Dump(ST_Buffer(ST_Union(wkb_geometry), {EPSB}))).geom
+            FROM {args.table}_lines
+            WHERE type LIKE '%COASTLINE%')
+          AS tl (geo)
+          ORDER BY ST_Length(tl.geo)
+          ASC LIMIT 1)
+        AS tr (geo)""")
+
+    cursor.execute(f"""
+        DELETE FROM {args.table}_lines AS tl
+        USING (SELECT ST_MakePolygon(wkb_geometry) FROM {args.table}_lines WHERE name = 'main')
+        AS tr (geo)
+        WHERE tl.type = '0' AND tl.name <> 'main' AND ST_Covers(tr.geo, tl.wkb_geometry)""")
 
     cursor.execute(f"""
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%COASTLINE%'""")

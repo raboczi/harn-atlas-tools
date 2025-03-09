@@ -58,7 +58,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
-        CREATE TEMP SEQUENCE IF NOT EXISTS serial START 100000;
+        CREATE TEMP SEQUENCE IF NOT EXISTS serial START 200000;
         ALTER TABLE {args.table}_lines ALTER id SET NOT NULL;
         DELETE FROM {args.table}_lines WHERE type = 'ROUTE';
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%ROADS%'""")
