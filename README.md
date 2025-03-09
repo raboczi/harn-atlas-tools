@@ -19,7 +19,7 @@ For the current export, add
       <path class="uuid-6447e0e3-a128-46a8-b849-9533c5245b93" d="M7088,4536L6800,4536L6800,2300L9260,2300L9260,3118"/>
     </g>
 
-just after the COASTLINE group.  This yields a (fake) cloased
+just after the COASTLINE group.  This yields a (fake) closed
 coastline and benefits vegetation calculation.
 
 The following is the rough procedure to follow:
@@ -27,11 +27,10 @@ The following is the rough procedure to follow:
     python svg2geo.py -i ~/Downloads/HarnAtlas-Clean-01.56EXPORT.svg -o xyz.json
 
 This will create points, polygons and lines in separate files, called
-xyz_<type>.json, respecively. Because Shape files cannot have
+`xyz_<type>.json`, respectively. Because Shape files cannot have
 different geometries in one file, they are separated.  Only Shape
 files and GeoJson are supported.  Of course, `xyz` can be exchanged
-with any other name (avoid blanks).  This step takes less than a
-minute on an export from Kaldor & Orbaal.
+with any other name (avoid blanks).
 
 Make sure you have a postgres database set up, so the following will
 work.  Include the postgis extensions.  I had a bug in the geometry
@@ -52,8 +51,7 @@ heuristics later.
 
 Replace `dbname`, `user`, `password`, `xyz` with whatever makes sense
 for you. This will dump the lines into the table `xyz_lines`. After
-this, we can make use of the index on the geo-coordinates. This step
-only takes about 10 seconds on the same map export as above.
+this, we can make use of the index on the geo-coordinates.
 
 You can also use ogr2ogr to convert db data into Shapefiles and
 GeoJson or a lot of other things. A great tool from a great toolset.
@@ -67,16 +65,17 @@ GeoJson or a lot of other things. A great tool from a great toolset.
 This step extracts the elevation lines and assigns height labels to
 the based on the following heuristics:
 
-* Any label satisfying the regex \[\^1-9\]\(\[1-9\]\[05\]\|5\)00 is a height label.
+* Any label satisfying the regex `\[\^1-9\]\(\[1-9\]\[05\]\|5\)00` is a height label.
   If you are into this, don't copy this from markdown.
 
-* Remove one erroneous line
+* Remove one erroneous line.
 
-* the largest number of close (EPSP) labels wins
+* the largest number of close (*EPSP*) labels wins.
 
-* connect all endpoints of lines within EPSL
+* connect all endpoints of lines within *EPSL*.
 
-* All unlabeled rings around peaks go in 500ft steps to the outermost labeled ring
+* All unlabeled rings around peaks go in 500ft steps to the outermost
+  labeled ring.
 
 The type field in the table contains the elevation.  About 200 lines
 have no label at this point.  This heuristic improves with the number
@@ -97,6 +96,8 @@ remove rivers by a simple heuristic.  The coasts are not considered by
 `geo_elevation.py` yet. This will also find the big lakes that are
 connected to the coastline; Arain & Tontury currently.
 
+* Uses *EPSL* to bridge shore gaps and *EPSB* to squeeze out rivers.
+
 > Runtime: 1 minute
 
 ## Lakes
@@ -105,6 +106,8 @@ This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
 
     python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host
+
+* Ignore pathological lakes smaller than *EPS*.
 
 > Runtime: 1 minute
 
@@ -123,14 +126,15 @@ will connect towns (and such) and roads by modifying both lines and
 points tables.  The corrected roads appear as *type = 'ROUTE'*.  The
 algorithm:
 
-* connect all road end-points within some distance to the road
+* connect all road end-points within distance *EPSG* to the road
   network.
 
 * Simplify the road network a bit ([Visvalingam Whyatt](https://en.wikipedia.org/wiki/Visvalingam%E2%80%93Whyatt_algorithm))
+  using *EPSL* as corner-measure.
 
-* Remove short end segments from the road network
+* Remove short end segments from the road network.
 
-* Shift close locations onto road network
+* Shift close locations onto road network.
 
 > Runtime: 1 minute
 
@@ -146,11 +150,13 @@ at later positions.  I.e. the multipolygons are disjoint.  position
 *0* is going to be the default, filling all land area not filled
 otherwise.
 
-* The above is called "reduce & normalize" in the script
+* The above is called "reduce & normalize" in the script.
 
-* Vegetation is restricted to land
+* Use *EPS* to grow a bit to cover draw glitches.
 
-* Shoal/Reef is restricted to off land
+* Vegetation is restricted to land.
+
+* Shoal/Reef is restricted to off land.
 
 * The results are in the *xyz_polys* table.
 
