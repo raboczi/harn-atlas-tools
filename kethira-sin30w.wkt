@@ -1,0 +1,13 @@
+PROJCS["CG 4045 / 30°W Hârn and the Ederwyn",
+  GEOGCS["Kethira",
+    DATUM["Kethira sphere", SPHEROID["Kethira sphere", 5729577.95130823208768, 0]],
+    PRIMEM["Omrium",0],
+    UNIT["degree",0.0174532925199433, AUTHORITY["EPSG","9122"]]
+  ],
+  PROJECTION["Sinusoidal"], 
+  PARAMETER["False_Easting",-23],
+  PARAMETER["False_Northing",0],
+  PARAMETER["Central_Meridian",-30],
+  UNIT["square", 100000],
+  REMARK["Not part of CG 4045; used to reduce distortion of the Hârnic Isles by placing the 30°W meridian on the F/G atlas square boundary"]
+]

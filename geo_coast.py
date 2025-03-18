@@ -51,7 +51,7 @@ def extract_lake(table, cursor, name, height, inner_point):
         UPDATE {table}
         SET type = {height}, name = 'LAKE/{name}'
         WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
-          ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('{inner_point}', 4326))""")
+          ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('{inner_point}'))""")
 
 def make_valid_polys(table, cursor, merge, line_id):
     """Removes the smallest segments until only disjoint polygons remain. Update."""
@@ -176,7 +176,7 @@ def main():
                       ST_MakePolygon(wkb_geometry))))).geom
           FROM {args.table}_lines
           WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
-            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-15.3 40.33)', 4326)))
+            ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-15.3 40.33)')))
         AS lines (id, geo)""")
     poly = cursor.fetchall()
     verbosity(args.verbose, f"- {poly[0][0]}")
