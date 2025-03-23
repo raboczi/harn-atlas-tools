@@ -141,11 +141,13 @@ def main():
     print("Remove spurious lines")
     if args.verbose:
         print(f"- duplicate at LM5") # delicate
-    approx = 'POLYGON((-17.0025 45.7429,-17.0023 45.7429,-17.0023 45.7426,-17.0025 45.7426,-17.0025 45.7429))'
+    approx = 'POLYGON((-17.0025 45.7429, ' + \
+        '-17.0023 45.7429, -17.0023 45.7426, ' + \
+        '-17.0025 45.7426, -17.0025 45.7429))'
     cursor.execute(f"""
         DELETE FROM {args.table}_lines AS tl
         WHERE ST_intersects(tl.wkb_geometry, ST_GeomFromText('{approx}', 4326))""")
-    
+
     print("Validate lines")
     cursor.execute(f"""
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")

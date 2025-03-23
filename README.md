@@ -152,6 +152,6 @@ otherwise.
 
 * Shoal/Reef is restricted to off land
 
-* The results are in the *xyz_polys* table.
+* The results are in the *xyz_polys* table, type prefixed with `VEG/`.
 
-> Runtime: 1-3 minutes
+> Runtime: 3 minutes

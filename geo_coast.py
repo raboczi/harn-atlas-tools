@@ -70,13 +70,17 @@ def make_valid_polys(table, cursor, merge, line_id):
     if len(merge) == 1:
         cursor.execute(f"""
             UPDATE {table}
-            SET name = 'nameless', type = '/COASTLINE/tmp-lake', wkb_geometry = '{merge[0][0]}'::geometry
+            SET name = 'nameless',
+              type = '/COASTLINE/tmp-lake',
+              wkb_geometry = '{merge[0][0]}'::geometry
             WHERE id = {line_id}""")
     else:
         for poly in merge:
             cursor.execute(f"""
                 INSERT INTO {table} (id, name, type, wkb_geometry)
-                VALUES (nextval('serial'), 'nameless', '/COASTLINE/tmp-lake', '{poly[0]}'::geometry)""")
+                VALUES (
+                  nextval('serial'), 'nameless', '/COASTLINE/tmp-lake',
+                  '{poly[0]}'::geometry)""")
         cursor.execute(f"""
             DELETE FROM {table} WHERE id = {line_id}""")
 
