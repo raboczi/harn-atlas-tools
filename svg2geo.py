@@ -31,10 +31,10 @@ SYMBOLS = {}
 SCHEMA_LINES = {'geometry': 'LineString', 'properties':
                 {'id': 'int', 'type': 'str', 'len': 'int', 'name': 'str', 'svgid': 'str',
                  'style': 'str'}}
-SCHEMA_POINTS = {'geometry': 'Point', 'properties': {'id': 'int', 'type': 'str',
-                                                     'name': 'str', 'svgid': 'str'}}
-SCHEMA_POLYGONS = {'geometry': 'Polygon', 'properties': {'id': 'int', 'type': 'str',
-                                                         'name': 'str', 'svgid': 'str'}}
+SCHEMA_POINTS = {'geometry': 'Point', 'properties':
+                 {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str', 'style': 'str'}}
+SCHEMA_POLYGONS = {'geometry': 'Polygon', 'properties':
+                   {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str'}}
 NUM1 = r' ?,?(-?(?:[0-9]*\.?[0-9]+)|(?:[0-9]+))'
 NUM2 = NUM1 + NUM1
 NUM4 = NUM2 + NUM2
@@ -109,6 +109,7 @@ def parse_point(typ, elem, out_point_file):
     x_c = y_c = w_c = h_c = 0
     mat = attr2transform(elem.attrib.get('transform', '-'))
     name = get_data_name(elem)
+    style = '-'
     if elem.tag.endswith('circle'):
         x_c = float(elem.attrib['cx'])
         y_c = float(elem.attrib['cy'])
@@ -125,6 +126,7 @@ def parse_point(typ, elem, out_point_file):
         w_c = float(elem.attrib.get('width', 0))
         h_c = float(elem.attrib.get('height', 0))
         typ += '/' + elem.attrib.get('xlink:href', '-')
+        style = re.sub(r".* ","",elem.attrib.get('transform', '-'))
     else:
         print(f"{elem.tag} shouldn't be here")
         return
@@ -133,7 +135,8 @@ def parse_point(typ, elem, out_point_file):
     SID.inc_sid()
     out_point_file.write({'geometry': mapping(pointstring),
                           'properties': {'id': SID.get_sid(), 'type': typ,
-                                         'name': name, 'svgid': elem.attrib.get('id', '-')}})
+                                         'name': name, 'svgid': elem.attrib.get('id', '-'),
+                                         'style': style}})
 
 def parse_path(typ, elem, out_lines_file, out_point_file):
     """Parse path and write to file as line."""
@@ -210,7 +213,8 @@ def parse_path(typ, elem, out_lines_file, out_point_file):
                 SID.inc_sid()
                 out_point_file.write({'geometry': mapping(pointstring), 'properties':
                                       {'id': SID.get_sid(), 'type': 'special copy',
-                                       'name': name, 'svgid': elem.attrib.get('id', '-')}})
+                                       'name': name, 'svgid': elem.attrib.get('id', '-'),
+                                       'style': '-'}})
                 return
             path = path[1:]
             while match := re.match(rf"{NUM6}", path):
@@ -523,7 +527,10 @@ def main():
     else:
         root = ElementTree.parse(args.infile).getroot()
         el_a1 = root.find(".//*[@id='A1']")
+        if el_a1 is None:
+            el_a1 = root.find(".//*[@data-name='A1']")
         global SIZEMINX
+        print(el_a1)
         SIZEMINX = float(el_a1.attrib.get('x', 0))
         global SIZEMINY
         SIZEMINY = float(el_a1.attrib.get('y', 0))

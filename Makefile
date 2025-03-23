@@ -4,9 +4,9 @@
 # Edit the svg definition below to point to HarnAtlas-Clean-01.56.svg
 # After the Makefile runs, the map should be visible at http://localhost
 
-svg = ~/Documents/Games/Hârn/Hârn\ Atlas/HarnAtlas-Clean-01.56.svg
-db = PG:"dbname=dbname host=localhost user=user port=5432 password=password"
-creds = user:password@dbname:localhost
+svg = ~/Downloads/HarnAtlas-Clean-01.56EXPORT.svg
+db = PG:"dbname=dbname host=localhost user=user port=25432 password=password"
+creds = user:password@dbname:localhost:25432
 
 
 start: setup ah
@@ -30,9 +30,10 @@ xyz_lines.json xyz_polys.json xyz_pts.json:
 
 setup: postgis xyz_lines.json xyz_polys.json xyz_pts.json
 	docker exec harn-atlas-tools-db-1 psql postgresql://user:password@localhost:5432/dbname\
-	 -c "drop table if exists xyz_lines"\
-	 -c "drop table if exists xyz_polys"\
-	 -c "drop table if exists xyz_pts"
+	 -c "DROP TABLE IF EXISTS xyz_lines"\
+	 -c "DROP TABLE IF EXISTS xyz_polys"\
+	 -c "DROP TABLE IF EXISTS xyz_pts"\
+         -c "CREATE EXTENSION postgis_sfcgal"
 	ogr2ogr -f PostgreSQL $(db) xyz_lines.json -nln xyz_lines
 	ogr2ogr -f PostgreSQL $(db) xyz_polys.json -nln xyz_polys
 	ogr2ogr -f PostgreSQL $(db) xyz_pts.json -nln xyz_pts
@@ -42,7 +43,7 @@ setup: postgis xyz_lines.json xyz_polys.json xyz_pts.json
 	 -c "SELECT UpdateGeometrySRID('xyz_pts','wkb_geometry',0)"
 	python geo_elevation.py -t xyz -d $(creds)
 	python geo_coast.py -t xyz -d $(creds)
-	#python geo_lakes.py -t xyz -d $(creds)
+	python geo_lakes.py -t xyz -d $(creds)
 	python geo_roads.py -t xyz -d $(creds)
 	python geo_vegetation.py -t xyz -d $(creds)
 

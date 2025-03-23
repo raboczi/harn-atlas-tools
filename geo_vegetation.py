@@ -77,7 +77,7 @@ def main():
         description='Create vegetation areas from postgis database.')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname:host')
+        help='db to connect to user:password@dbname:host:port')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -90,7 +90,8 @@ def main():
         user=f"{args.db.split('@')[0].split(':')[0]}",
         password=f"{args.db.split('@')[0].split(':')[1]}",
         database=f"{args.db.split('@')[1].split(':')[0]}",
-        host=f"{args.db.split('@')[1].split(':')[1]}")
+        host=f"{args.db.split('@')[1].split(':')[1]}",
+        port=f"{args.db.split('@')[1].split(':')[2]}")
     cursor = conn.cursor()
 
     # Initialize
@@ -136,7 +137,7 @@ def main():
         raw[typ] = geo_array(rows)
         print(f"Found {len(rows)}")
 
-    for i, ty_i in types:
+    for i, ty_i in enumerate(types):
         print(f"Normalize {ty_i}")
         redux[ty_i] = raw[ty_i]
         for j in range(i + 1, len(types) - 1):

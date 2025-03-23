@@ -40,7 +40,7 @@ def main():
         description='Create roads from postgis database.')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname:host')
+        help='db to connect to user:password@dbname:host:port')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -53,7 +53,8 @@ def main():
         user=f"{args.db.split('@')[0].split(':')[0]}",
         password=f"{args.db.split('@')[0].split(':')[1]}",
         database=f"{args.db.split('@')[1].split(':')[0]}",
-        host=f"{args.db.split('@')[1].split(':')[1]}")
+        host=f"{args.db.split('@')[1].split(':')[1]}",
+        port=f"{args.db.split('@')[1].split(':')[2]}")
     cursor = conn.cursor()
 
     # Initialize

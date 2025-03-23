@@ -60,7 +60,7 @@ GeoJson or a lot of other things. A great tool from a great toolset.
 
 ## Elevation
 
-    python geo_elevation.py -t xyz -d user:password@dbname:host
+    python geo_elevation.py -t xyz -d user:password@dbname:host:port
 
 This step extracts the elevation lines and assigns height labels to
 the based on the following heuristics:
@@ -89,7 +89,7 @@ eventually decrease when all lines will be closed.
 Effectively, this is the 0 elevation line and this is how it will be
 treated in later steps.
 
-    python geo_coast.py -t xyz -d user:password@dbname:host
+    python geo_coast.py -t xyz -d user:password@dbname:host:port
 
 will detect all closed coastlines (including inland islands) and
 remove rivers by a simple heuristic.  The coasts are not considered by
@@ -105,7 +105,7 @@ connected to the coastline; Arain & Tontury currently.
 This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
 
-    python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host
+    python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host:port
 
 * Ignore pathological lakes smaller than *EPS*.
 
@@ -120,7 +120,7 @@ point the runtime is about a minute, but it still produces some small
 artifacts.  I.e. some roads spring up that would be covered by a drawn
 road.  Cleaning this up requires another algorithm step.
 
-    python geo_roads.py -t xyz -d user:password@dbname:host
+    python geo_roads.py -t xyz -d user:password@dbname:host:port
 
 will connect towns (and such) and roads by modifying both lines and
 points tables.  The corrected roads appear as *type = 'ROUTE'*.  The
@@ -143,7 +143,7 @@ algorithm:
 Turns the WOODLAND, CROPLAND, HEATH, FOREST, NEEDLELEAF, ALPINE,
 SNOW_x2F_ICE into multipolygons (in the postgis sense).
 
-    python geo_vegetation.py -t xyz -d user:password@dbname:host
+    python geo_vegetation.py -t xyz -d user:password@dbname:host:port
 
 Any set at position *n* in this list is reduced by every multipolygon
 at later positions.  I.e. the multipolygons are disjoint.  position

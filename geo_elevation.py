@@ -108,7 +108,7 @@ def main():
         description='Create elevation lines from postgis database.')
     parser.add_argument(
         '-d', '--database', dest='db', required=True,
-        help='db to connect to user:password@dbname:host')
+        help='db to connect to user:password@dbname:host:port')
     parser.add_argument(
         '-t', '--table', dest='table', required=True,
         help='table prefix; _pts and _lines will be added')
@@ -121,7 +121,8 @@ def main():
         user=f"{args.db.split('@')[0].split(':')[0]}",
         password=f"{args.db.split('@')[0].split(':')[1]}",
         database=f"{args.db.split('@')[1].split(':')[0]}",
-        host=f"{args.db.split('@')[1].split(':')[1]}")
+        host=f"{args.db.split('@')[1].split(':')[1]}",
+        port=f"{args.db.split('@')[1].split(':')[2]}")
     cursor = conn.cursor()
 
     # Initialize
@@ -224,7 +225,7 @@ def main():
     cursor.execute(f"""
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
     print(f"Remaining lines: {cursor.fetchall()[0][0]}")
-#    conn.commit()
+    conn.commit()
 
 if __name__ == '__main__':
     main()

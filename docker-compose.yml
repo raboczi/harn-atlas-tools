@@ -1,9 +1,9 @@
 services:
   db:
-    image: kartoza/postgis:17-3.5
+    image: postgis/postgis:17-3.5
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "25432:5432"
     environment:
       - POSTGRES_DB=dbname
       - POSTGRES_USER=user
@@ -15,7 +15,7 @@ services:
     image: nginx:1.27
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8082:80"
     volumes:
       - ./:/etc/nginx/html:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
