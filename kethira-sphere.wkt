@@ -1,0 +1,6 @@
+GEOGCS["Kethira",
+  DATUM["Kethira sphere", SPHEROID["Kethira sphere", 5729577.95130823208768, 0]],
+  PRIMEM["Omrium",0],
+  UNIT["degree",0.0174532925199433, AUTHORITY["EPSG","9122"]],
+  REMARK["Kethiran equivalent to WGS 1984 or EPSG 4326"]
+]

@@ -522,7 +522,7 @@ def main():
 
     else:
         root = ElementTree.parse(args.infile).getroot()
-        el_a1 = root.find(".//*[@data-name='A1']")
+        el_a1 = root.find(".//*[@id='A1']")
         global SIZEMINX
         SIZEMINX = float(el_a1.attrib.get('x', 0))
         global SIZEMINY

@@ -1,0 +1,265 @@
+{
+  "name": "Kethira",
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost/sprite/marker",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "rgb(212, 240, 254)"
+      }
+    },
+    {
+      "id": "ah-vegetation-fill",
+      "type": "fill",
+      "source": "ah-polys-geojson",
+      "filter": ["!=", "VEG//SHOAL_x2F_REEF", ["get", "type"]],
+      "paint": {
+        "fill-color": ["match", ["get", "type"],
+          "/-/SWAMPS/Melderyn/-/-", "DarkCyan",
+          "/-/SWAMPS/Melderyn/-/-/-", "DarkOliveGreen",
+          "VEG//ALPINE",       "rgb(229, 210, 169)",
+          "VEG//CROPLAND",     "rgb(255, 235, 149)",
+          "VEG//FOREST",       "rgb(197, 225, 181)",
+          "VEG//HEATH",        "rgb(255, 230, 172)",
+          "VEG//NEEDLELEAF",   "rgb(154, 203, 135)",
+          "VEG//SNOW_x2F_ICE", "rgb(236, 243, 251)",
+          "VEG//WOODLAND",     "rgb(242, 246, 213)",
+          "#F0F"]
+      }
+    },
+    {
+      "id": "ah-reef-fill",
+      "type": "fill",
+      "source": "ah-polys-geojson",
+      "filter": ["in", "VEG//SHOAL_x2F_REEF", ["get", "type"]],
+      "paint": {
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0, 4, 1],
+        "fill-pattern": "reef"
+      },
+      "minZoom": 3
+    },
+    {
+      "id": "ah-line",
+      "type": "line",
+      "source": "ah-lines-geojson",
+      "filter": ["!", ["any",
+        ["in", "/ALPINE/", ["get", "type"]],
+        ["in", "/BOUNDARIES/", ["get", "type"]],
+        ["in", "/CROPLAND/", ["get", "type"]],
+        ["==", "/-/FONT_STYLE_GUIDE/Box__x26__Lines/-/-/-", ["get", "type"]],
+        ["in", "/FOREST/", ["get", "type"]],
+        ["in", "/HEATH/", ["get", "type"]],
+        ["in", "/MAP GRIDS/", ["get", "type"]],
+        ["in", "/NEEDLELEAF/", ["get", "type"]],
+        ["in", "/path", ["get", "type"]],
+        ["in", "/ROADS/", ["get", "type"]],
+        ["in", "/SHOAL_x2F_REEF/", ["get", "type"]],
+        ["in", "/SNOW_x2F_ICE/", ["get", "type"]],
+        ["in", "/TYPE/", ["get", "type"]],
+        ["in", "/WOODLAND/", ["get", "type"]]]],
+      "paint": {
+        "line-color": ["case",
+          ["==", "0", ["get", "type"]], "DarkCyan",
+          ["in", "/BOUNDARIES/", ["get", "type"]], "Gray",
+          ["in", "/COASTLINE/", ["get", "type"]], "DarkCyan",
+          ["in", "/CONTOURS/", ["get", "type"]], "Sienna",
+          ["in", "/path", ["get", "type"]], "Silver",
+          ["in", "/ROADS/", ["get", "type"]], "Red",
+          ["==", "ROUTE", ["get", "type"]], "Crimson",
+          ["in", "/SEA/", ["get", "type"]], "Black",
+          ["in", "/STREAMS-LAKES/", ["get", "type"]], "rgb(52, 134, 142)",
+          ["in", "/SWAMPS/", ["get", "type"]], "DarkCyan",
+          ["in", "/TOWNS/", ["get", "type"]], "Red",
+          ["in", "/TYPE/", ["get", "type"]], "Purple",
+          "#F0F"],
+        "line-width": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 10, ["case",
+          ["in", "/CONTOURS/", ["get", "type"]], 2,
+          3]]
+      }
+    },
+    {
+      "id": "ah-boundary-line",
+      "type": "line",
+      "source": "ah-lines-geojson",
+      "filter": ["in", "/BOUNDARIES/", ["get", "type"]],
+      "paint": {
+        "line-color": "Black",
+        "line-dasharray": [3, 1],
+        "line-opacity": 0.3,
+        "line-width": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 10, 5]
+      }
+    },
+    {
+      "id": "ah-circle",
+      "type": "circle",
+      "source": "ah-pts-geojson",
+      "filter": ["!", ["any",
+        ["in", "000", ["get", "type"]],
+        ["in", "500", ["get", "type"]],
+        ["in", "/SEA/", ["get", "type"]],
+        ["in", ["get", "type"], ["literal", [
+	  "Abbey",
+	  "Battle_Site",
+	  "Castle",
+	  "Chapter_House",
+	  "City",
+	  "Ferry",
+	  "/-/FONT_STYLE_GUIDE/Box__x26__Lines/-",
+	  "Gargun",
+	  "Keep",
+	  "Khuzan_Fort",
+	  "PEAK",
+	  "Ruin_x2F_Cropland",
+	  "Ruin_x2F_Forest",
+	  "Ruin_x2F_Woodland",
+	  "StoneManor_x2F_Cropland",
+	  "StoneManor_x2F_Woodland",
+	  "Special_Interest",
+	  "Special Interest",
+	  "Tribal_Camp",
+	  "Tribal_Site",
+	  "WoodManor_x2F_Cropland",
+	  "WoodManor_x2F_Woodland"]]]]],
+      "paint": {
+        "circle-color": ["case",
+          ["in", "000", ["get", "type"]], "Sienna",
+          ["in", "500", ["get", "type"]], "Sienna",
+          ["in", ["get", "type"], ["literal", ["Abbey", "Castle", "Chapter House", "City", "Gargun", "Keep", "Khuzan Fort", "Tribal Camp", "Tribal Site"]]], "Red",
+          ["in", ["get", "type"], ["literal", ["Battle Site", "Special Interest"]]], "Gold",
+          ["in", ["get", "type"], ["literal", ["Ferry", "Ford", "Rapids", "Waterfall"]]], "Blue",
+          ["in", ["get", "type"], ["literal", ["Mine", "Quarry", "Salt"]]], "Black",
+          ["in", "BRIDGE ", ["get", "type"]], "Red",
+          ["==", "PEAK", ["get", "type"]], "Sienna",
+          ["in", "Ruin/", ["get", "type"]], "Red",
+          ["in", "/SEA/", ["get", "type"]], "Cyan",
+          ["in", "StoneManor/", ["get", "type"]], "Red",
+          ["==", "Swamp", ["get", "type"]], "DarkCyan",
+          ["in", "/SWAMPS/", ["get", "type"]], "DarkCyan",
+          ["in", "/TOWNS/", ["get", "type"]], "Red",
+          ["in", "WoodManor/", ["get", "type"]], "Red",
+          "#F0F"],
+        "circle-opacity": 0.3,
+        "circle-radius": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 10, 10]
+      }
+    },
+    {
+      "id": "ah-elevation-symbol",
+      "type": "symbol",
+      "source": "ah-pts-geojson",
+      "filter": ["in", "00", ["get", "type"]],
+      "layout": {
+        "text-field": ["case",
+          ["in", "9500", ["get", "type"]], "9500'",
+          ["in", "9000", ["get", "type"]], "9000'",
+          ["in", "8500", ["get", "type"]], "8500'",
+          ["in", "8000", ["get", "type"]], "8000'",
+          ["in", "7500", ["get", "type"]], "7500'",
+          ["in", "7000", ["get", "type"]], "7000'",
+          ["in", "6500", ["get", "type"]], "6500'",
+          ["in", "6000", ["get", "type"]], "6000'",
+          ["in", "5500", ["get", "type"]], "5500'",
+          ["in", "5000", ["get", "type"]], "5000'",
+          ["in", "4500", ["get", "type"]], "4500'",
+          ["in", "4000", ["get", "type"]], "4000'",
+          ["in", "3500", ["get", "type"]], "3500'",
+          ["in", "3000", ["get", "type"]], "3000'",
+          ["in", "2500", ["get", "type"]], "2500'",
+          ["in", "2000", ["get", "type"]], "2000'",
+          ["in", "1500", ["get", "type"]], "1500'",
+          ["in", "1000", ["get", "type"]], "1000'",
+          ["in", "500", ["get", "type"]], "500'",
+          "?'"],
+        "text-size": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 11, 32]
+      },
+      "paint": {
+        "text-color": "Sienna"
+      }
+    },
+    {
+      "id": "ah-icon-symbol",
+      "type": "symbol",
+      "source": "ah-pts-geojson",
+      "filter": ["in", ["get", "type"], ["literal", [
+        "Abbey",
+        "Battle_Site",
+        "Castle",
+        "Chapter_House",
+        "City",
+        "Ferry",
+        "Gargun",
+        "Keep",
+        "Khuzan_Fort",
+        "PEAK",
+        "Ruin_x2F_Cropland",
+        "Ruin_x2F_Forest",
+        "Ruin_x2F_Woodland",
+        "StoneManor_x2F_Cropland",
+        "StoneManor_x2F_Woodland",
+        "Special_Interest",
+        "Tribal_Camp",
+        "Tribal_Site",
+        "WoodManor_x2F_Cropland",
+        "WoodManor_x2F_Woodland"]]],
+      "layout": {
+        "icon-image": ["match", ["get", "type"],
+          "Abbey", "abbey_unfortified",
+          "Battle_Site", "point_of_interest",
+          "Castle", "castle",
+          "Chapter_House", "abbey_fortified",
+          "City", "town",
+          "Ferry", "ferry",
+          "Gargun", "gargun_colony",
+          "Keep", "keep",
+          "Khuzan_Fort", "fort",
+          "PEAK", "peak",
+          ["Ruin_x2F_Cropland", "Ruin_x2F_Forest", "Ruin_x2F_Woodland"], "manor_ruin",
+          ["StoneManor_x2F_Cropland", "StoneManor_x2F_Woodland"], "manor_stone_fortification",
+          "Special_Interest", "point_of_interest",
+          "Tribal_Camp", "tribal_village_yellow",
+          "Tribal_Site", "point_of_interest",
+          ["WoodManor_x2F_Cropland", "WoodManor_x2F_Woodland"], "manor_wooden_fortification",
+          "point_of_interest"],
+        "icon-size": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 11, 1],
+        "symbol-sort-key": ["match", ["get", "type"],
+          "City", -4,
+          "Castle", -3,
+          "Keep", -2,
+          "Abbey", -1,
+          "Chapter_House", -1,
+          0],
+        "text-field": ["case", ["==", "-", ["get", "name"]], "", ["get", "name"]],
+        "text-ignore-placement": true,
+        "text-optional": true,
+        "text-radial-offset": 0.6,
+        "text-size": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 11, 32],
+        "text-variable-anchor": ["left", "right", "top-left", "bottom-left", "top", "bottom", "top-right", "bottom-right"]
+      },
+      "paint": {
+        "text-halo-blur": 2,
+        "text-halo-color": "White",
+        "text-halo-width": 2
+      }
+    }
+  ],
+  "sources": {
+    "ah-lines-geojson": {
+        "type": "geojson",
+        "data": "ah_lines.json"
+    },
+    "ah-pts-geojson": {
+        "type": "geojson",
+        "data": "ah_pts.json"
+    },
+    "ah-polys-geojson": {
+        "type": "geojson",
+        "data": "ah_polys.json"
+    },
+    "cobblestone-vector": {
+        "type": "vector",
+        "url": "pmtiles://https://kethira.net/mercator/tile.pmtiles"
+    }
+  },
+  "version": 8
+}
