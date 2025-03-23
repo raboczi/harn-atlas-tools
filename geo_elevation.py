@@ -146,8 +146,7 @@ def main():
         '-17.0025 45.7426, -17.0025 45.7429))'
     cursor.execute(f"""
         DELETE FROM {args.table}_lines AS tl
-        WHERE ST_intersects(tl.wkb_geometry, ST_GeomFromText('{approx}', 4326))""")
-
+        WHERE ST_intersects(tl.wkb_geometry, ST_GeomFromText('{approx}'))""")
     print("Validate lines")
     cursor.execute(f"""
         SELECT id, wkb_geometry FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
