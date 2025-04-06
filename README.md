@@ -16,7 +16,7 @@ the modified dataset.
 For the current export, add
 
     <g id="uuid-bb7c1ef1-f291-4da3-b491" data-name="Fake">
-      <path class="uuid-6447e0e3-a128-46a8-b849-9533c5245b93" d="M7088,4536L6800,4536L6800,2300L9260,2300L9260,3118"/>
+      <path d="M7088,4536L6800,4536L6800,2300L9260,2300L9260,3118"/>
     </g>
 
 just after the COASTLINE group.  This yields a (fake) closed
@@ -24,7 +24,7 @@ coastline and benefits vegetation calculation.
 
 The following is the rough procedure to follow:
 
-    python svg2geo.py -i ~/Downloads/HarnAtlas-Clean-01.56EXPORT.svg -o xyz.json
+    python svg2geo.py -i ~/Downloads/HarnAtlas-Clean-01.74.svg -o xyz.json
 
 This will create points, polygons and lines in separate files, called
 `xyz_<type>.json`, respectively. Because Shape files cannot have
@@ -77,6 +77,8 @@ the based on the following heuristics:
 * All unlabeled rings around peaks go in 500ft steps to the outermost
   labeled ring.
 
+* Lines closed will be turned into polygons.
+
 The type field in the table contains the elevation.  About 200 lines
 have no label at this point.  This heuristic improves with the number
 of closed elevation lines.  With Harn being an island this will
@@ -104,6 +106,7 @@ connected to the coastline; Arain & Tontury currently.
 
 This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
+This registers as *Sanity check failed*.
 
     python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host:port
 

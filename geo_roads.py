@@ -130,6 +130,7 @@ def main():
             SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
           AS tl (geo))
         AS tr (geo)""")
+    # TODO keep style
 
     # Find nearby towns
     print("Find locations")

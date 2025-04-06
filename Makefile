@@ -1,10 +1,10 @@
 #!/bin/sh
 
 # To run this Makefile, your environment must provide: docker, ogr2ogr, python
-# Edit the svg definition below to point to HarnAtlas-Clean-01.56.svg
+# Edit the svg definition below to point to HarnAtlas-Clean-01.74.svg
 # After the Makefile runs, the map should be visible at http://localhost
 
-svg = ~/Downloads/HarnAtlas-Clean-01.56EXPORT.svg
+svg = ~/Downloads/HarnAtlas-Clean-01.74.svg
 db = PG:"dbname=dbname host=localhost user=user port=25432 password=password"
 creds = user:password@dbname:localhost:25432
 

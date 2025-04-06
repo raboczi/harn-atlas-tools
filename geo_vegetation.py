@@ -55,7 +55,7 @@ def make_swamp(args, cursor):
     cursor.execute(f"""
         SELECT ST_Buffer(
             ST_Buffer(
-              ST_Buffer(ST_Union(wkb_geometry), {EPSI}), -{EPSD}), {EPSD})
+              ST_Buffer(ST_Union(ST_MakeValid(wkb_geometry)), {EPSI}), -{EPSD}), {EPSD})
         FROM {args.table}_polys
         WHERE type LIKE '%SWAMP%'""")
     ret.append([cursor.fetchall()[0][0]])
@@ -102,8 +102,8 @@ def main():
              "FOREST",
              "NEEDLELEAF",
              "ALPINE",
-             "SNOW_x2F_ICE",
-             "SHOAL_x2F_REEF"]
+             "SNOW/ICE",
+             "SHOAL/REEF"]
 
     sql_area = "type LIKE '%" + "%' OR type LIKE '%".join(types) + "%'"
     # Initialize

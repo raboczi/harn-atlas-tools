@@ -127,6 +127,7 @@ def main():
 
     # Initialize
     cursor.execute(f"""
+        CREATE TEMP SEQUENCE IF NOT EXISTS serial START 400000;
         ALTER TABLE {args.table}_lines ALTER id SET NOT NULL;
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%CONTOURS%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
@@ -220,6 +221,14 @@ def main():
     lines = cursor.fetchall()
     for line in lines:
         label_rings(args.verbose, f"{args.table}_lines", cursor, line)
+
+    # Convert to polygons
+    print("Turn closed lines into polygons")
+    cursor.execute(f"""
+        INSERT INTO {args.table}_polys (id, name, type, wkb_geometry)
+        SELECT nextval('serial'), 'elevation', type, ST_MakePolygon(wkb_geometry)
+        FROM {args.table}_lines
+        WHERE ST_IsClosed(wkb_geometry)""")
 
     # Rest
     cursor.execute(f"""
