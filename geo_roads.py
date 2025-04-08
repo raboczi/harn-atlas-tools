@@ -8,30 +8,6 @@ import argparse
 import psycopg2
 
 EPSG = 0.005 # gap to bridge
-EPSL = 0.001 # Corner measure for corners to cut
-
-def make_valid(cursor, merge):
-    """Removes the smallest one-ended segments."""
-    sql_array = "'" + "'::geometry, '".join(merge) + "'::geometry"
-    cursor.execute(f"""
-        SELECT ST_Union(tl.geo) FROM (
-          SELECT (g.pt).geom, array_agg((g.pt).path) FROM (
-            SELECT ST_DumpPoints(ST_LineMerge(ST_Union(ARRAY[{sql_array}]))) AS pt)
-          AS g
-          GROUP BY (g.pt).geom)
-        AS tl (geo, ord)
-        WHERE array_length(tl.ord, 1) > 1""")
-    merge = cursor.fetchall()[0][0]
-    cursor.execute(f"""
-        SELECT tl.line FROM (SELECT (
-          ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
-        AS tl (line)
-        WHERE ST_Length(tl.line) > {EPSG} OR
-          (ST_Distance(ST_StartPoint(tl.line), '{merge}'::geometry) = 0 AND
-           ST_Distance(ST_EndPoint(tl.line), '{merge}'::geometry) = 0)""")
-    merge = [m[0] for m in cursor.fetchall()]
-    print(f"Keep {len(merge)} connected or long segments")
-    return "'" + "'::geometry, '".join(merge) + "'::geometry"
 
 def main():
     """Main method."""
@@ -65,75 +41,6 @@ def main():
         SELECT count(*) FROM {args.table}_lines WHERE type LIKE '%ROADS%'""")
     print(f"Identifying lines: {cursor.fetchall()[0][0]}")
 
-    cursor.execute(f"""
-        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry, style)
-        SELECT nextval('serial'), '-', 'PREPROUTE', geo, '-' FROM (
-          SELECT (ST_Dump(ST_LineMerge(ST_Union(wkb_geometry)))).geom
-          FROM {args.table}_lines
-          WHERE type LIKE '%ROADS%')
-        AS lines(geo)""")
-
-    print(f"Connect start points of roads to roads")
-    cursor.execute(f"""
-        SELECT tl.id, tr.id, ST_ClosestPoint(tl.wkb_geometry, ST_StartPoint(tr.geo))
-        FROM {args.table}_lines AS tl INNER JOIN LATERAL (
-          SELECT ts.id, ts.wkb_geometry FROM {args.table}_lines AS ts
-          WHERE ts.id <> tl.id AND ts.type = 'PREPROUTE' AND
-            ST_Distance(tl.wkb_geometry, ST_StartPoint(ts.wkb_geometry)) < {EPSG})
-        AS tr (id, geo) ON TRUE
-        WHERE tl.type = 'PREPROUTE'""")
-    pt_lines = cursor.fetchall()
-    print(f"Shift {len(pt_lines)} road-starts onto roads")
-    for pt_line in pt_lines:
-        if args.verbose:
-            print(f"- start {pt_line[1]} on {pt_line[0]}")
-        cursor.execute(f"""
-            UPDATE {args.table}_lines
-            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
-            WHERE id = {pt_line[0]}""")
-        cursor.execute(f"""
-            UPDATE {args.table}_lines
-            SET wkb_geometry = ST_SetPoint(wkb_geometry, 1, '{pt_line[2]}'::geometry)
-            WHERE id = {pt_line[1]}""")
-
-    print(f"Connect end points of roads to roads")
-    cursor.execute(f"""
-        SELECT tl.id, tr.id, ST_ClosestPoint(tl.wkb_geometry, ST_EndPoint(tr.geo))
-        FROM {args.table}_lines AS tl INNER JOIN LATERAL (
-          SELECT ts.id, ts.wkb_geometry FROM {args.table}_lines AS ts
-          WHERE ts.id <> tl.id AND ts.type = 'PREPROUTE' AND
-            ST_Distance(tl.wkb_geometry, ST_EndPoint(ts.wkb_geometry)) < {EPSG})
-        AS tr (id, geo) ON TRUE
-        WHERE tl.type = 'PREPROUTE'""")
-    pt_lines = cursor.fetchall()
-    print(f"Shift {len(pt_lines)} road-end onto roads")
-    for pt_line in pt_lines:
-        if args.verbose:
-            print(f"- end {pt_line[1]} on {pt_line[0]}")
-        cursor.execute(f"""
-            UPDATE {args.table}_lines
-            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
-            WHERE id = {pt_line[0]}""")
-        cursor.execute(f"""
-            UPDATE {args.table}_lines
-            SET wkb_geometry = ST_SetPoint(wkb_geometry, -1, '{pt_line[2]}'::geometry)
-            WHERE id = {pt_line[1]}""")
-
-    cursor.execute(f"""
-        SELECT wkb_geometry FROM {args.table}_lines WHERE type = 'PREPROUTE'""")
-    merge = [m[0] for m in cursor.fetchall()]
-    sql_array = make_valid(cursor, merge)
-    cursor.execute(f"""
-        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry, style)
-        SELECT nextval('serial'), '-', 'ROUTE', tr.geo, '-' FROM (
-          SELECT ST_SimplifyVW(tl.geo, {EPSL*EPSL}) FROM (
-            SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
-          AS tl (geo))
-        AS tr (geo)""")
-    # TODO keep style
-
-    # Find nearby towns
-    print("Find locations")
     # '%00%','%Abbey%','%BRIDGE%','%Battle Site%','%Castle%',
     # '%Chapter House%','%City%','%Ferry%','%Ford%','%Fort%','%Gargun%',
     # '%Keep%','%Manor%','%Mine%','%PEAK%','%Quarry%','%ROAD%' <- Tollhouse
@@ -159,36 +66,140 @@ def main():
           type LIKE '%Tribal%' OR \
           type LIKE '%Castle%'"
 
+    # Get all locations
     cursor.execute(f"""
-        SELECT tl.id, tr.id, tr.geo
+        SELECT ST_Union(wkb_geometry) FROM {args.table}_pts
+        WHERE {sql_locs}""")
+    pts = cursor.fetchall()[0][0]
+
+    # Shift all roads onto locations
+    cursor.execute(f"""
+        SELECT tl.id, array_agg(tr.id), tl.wkb_geometry
         FROM {args.table}_pts AS tl INNER JOIN LATERAL (
           SELECT id, wkb_geometry FROM {args.table}_lines
-          WHERE type = 'ROUTE' AND
+          WHERE type LIKE '%ROADS%' AND
             ST_Distance(wkb_geometry, tl.wkb_geometry) < {EPSG} AND
-            ST_Distance(wkb_geometry, tl.wkb_geometry) <> 0
-          ORDER BY ST_Distance(wkb_geometry, tl.wkb_geometry) ASC
-          LIMIT 1)
+            ST_Distance(wkb_geometry, tl.wkb_geometry) <> 0)
         AS tr (id, geo) ON TRUE
-        WHERE {sql_locs}""")
+        WHERE {sql_locs}
+        GROUP BY tl.id""")
     pt_lines = cursor.fetchall()
-    print(f"Shift {len(pt_lines)} locations onto roads")
+    print(f"Shift {len(pt_lines)} roads onto locations")
     for pt_line in pt_lines:
         if args.verbose:
-            print(f"- shift {pt_line[0]} onto {pt_line[1]}")
-        cursor.execute(f"""
-            UPDATE {args.table}_pts
-            SET wkb_geometry = ST_ClosestPoint('{pt_line[2]}'::geometry, wkb_geometry)
-            WHERE id = {pt_line[0]}""")
+            print(f"- shift onto {pt_line[0]}")
+        for pt_i in pt_line[1]:
+            cursor.execute(f"""
+                UPDATE {args.table}_lines
+                SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, {EPSG*1.01})
+                WHERE id = {pt_i}""")
+
+    # Shift all road starts/ends
+    cursor.execute(f"""
+        SELECT tl.id, tr.id, ST_ClosestPoint(tl.wkb_geometry, ST_StartPoint(tr.geo))
+        FROM {args.table}_lines AS tl INNER JOIN LATERAL (
+          SELECT ts.id, ts.wkb_geometry FROM {args.table}_lines AS ts
+          WHERE ts.id <> tl.id AND ts.type LIKE '%ROADS%' AND
+            ST_Distance(ST_StartPoint(ts.wkb_geometry), tl.wkb_geometry) < {EPSG} AND
+            ST_Distance(ST_StartPoint(ts.wkb_geometry), '{pts}'::geometry) > {EPSG/2})
+        AS tr (id, geo) ON TRUE
+        WHERE tl.type LIKE '%ROADS%'""")
+    pt_lines = cursor.fetchall()
+    print(f"Shift {len(pt_lines)} road-starts onto roads")
+    for pt_line in pt_lines:
+        if args.verbose:
+            print(f"- start {pt_line[1]} on {pt_line[0]}")
+        # Make adjacent line include new start point
         cursor.execute(f"""
             UPDATE {args.table}_lines
-            SET wkb_geometry = ST_Snap(wkb_geometry, tr.geo, 0)
-            FROM (
-              SELECT wkb_geometry FROM {args.table}_pts WHERE id = {pt_line[0]}) AS tr (geo)
+            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
+            WHERE id = {pt_line[0]}""")
+        # Make ending line end in new start point
+        cursor.execute(f"""
+            UPDATE {args.table}_lines
+            SET wkb_geometry = ST_SetPoint(wkb_geometry, 1, '{pt_line[2]}'::geometry)
+            WHERE id = {pt_line[1]}""")
+    cursor.execute(f"""
+        SELECT tl.id, tr.id, ST_ClosestPoint(tl.wkb_geometry, ST_EndPoint(tr.geo))
+        FROM {args.table}_lines AS tl INNER JOIN LATERAL (
+          SELECT ts.id, ts.wkb_geometry FROM {args.table}_lines AS ts
+          WHERE ts.id <> tl.id AND ts.type LIKE '%ROADS%' AND
+            ST_Distance(ST_EndPoint(ts.wkb_geometry), tl.wkb_geometry) < {EPSG} AND
+            ST_Distance(ST_EndPoint(ts.wkb_geometry), '{pts}'::geometry) > {EPSG/2})
+        AS tr (id, geo) ON TRUE
+        WHERE tl.type LIKE '%ROADS%'""")
+    pt_lines = cursor.fetchall()
+    print(f"Shift {len(pt_lines)} road-end onto roads")
+    for pt_line in pt_lines:
+        if args.verbose:
+            print(f"- end {pt_line[1]} on {pt_line[0]}")
+        # Make adjacent line include new end point
+        cursor.execute(f"""
+            UPDATE {args.table}_lines
+            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
+            WHERE id = {pt_line[0]}""")
+        # Make ending line end in new end point
+        cursor.execute(f"""
+            UPDATE {args.table}_lines
+            SET wkb_geometry = ST_SetPoint(wkb_geometry, -1, '{pt_line[2]}'::geometry)
             WHERE id = {pt_line[1]}""")
 
-    print(f"Cleanup")
+    print(f"Remove some artifacts")
     cursor.execute(f"""
-        DELETE FROM {args.table}_lines WHERE type = 'PREPROUTE'""")
+        SELECT id, ST_NPoints(wkb_geometry) FROM {args.table}_lines
+        WHERE type LIKE '%ROADS%' AND
+          ST_Distance(ST_StartPoint(wkb_geometry), '{pts}'::geometry) < {EPSG} AND
+          ST_Distance(ST_StartPoint(wkb_geometry), '{pts}'::geometry) <> 0""")
+    pt_lines = cursor.fetchall()
+    for pt_line in pt_lines:
+        if (pt_line[1] > 2):
+            cursor.execute(f"""
+                UPDATE {args.table}_lines
+                SET wkb_geometry = ST_RemovePoint(wkb_geometry, 0)
+                WHERE id = {pt_line[0]}""")
+        else:
+            cursor.execute(f"""
+                DELETE FROM {args.table}_lines
+                WHERE id = {pt_line[0]}""")
+    cursor.execute(f"""
+        SELECT id, ST_NPoints(wkb_geometry) FROM {args.table}_lines
+        WHERE type LIKE '%ROADS%' AND
+          ST_Distance(ST_EndPoint(wkb_geometry), '{pts}'::geometry) < {EPSG} AND
+          ST_Distance(ST_EndPoint(wkb_geometry), '{pts}'::geometry) <> 0""")
+    pt_lines = cursor.fetchall()
+    for pt_line in pt_lines:
+        if (pt_line[1] > 2):
+            cursor.execute(f"""
+                UPDATE {args.table}_lines
+                SET wkb_geometry = ST_RemovePoint(wkb_geometry, {pt_line[1] - 1})
+                WHERE id = {pt_line[0]}""")
+        else:
+            cursor.execute(f"""
+                DELETE FROM {args.table}_lines
+                WHERE id = {pt_line[0]}""")
+
+    print(f"Make all trails")
+    cursor.execute(f"""
+        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry)
+        SELECT nextval('serial'), '-', 'Trail', tl.geo FROM (
+          SELECT (ST_Dump(ST_LineMerge(ST_Union(wkb_geometry)))).geom FROM {args.table}_lines
+          WHERE type LIKE '%ROADS%' AND style LIKE '%dasharray: 1 1%')
+        AS tl (geo)""")
+    print(f"Make all unpaved roads")
+    cursor.execute(f"""
+        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry)
+        SELECT nextval('serial'), '-', 'Unpaved', tl.geo FROM (
+          SELECT (ST_Dump(ST_LineMerge(ST_Union(wkb_geometry)))).geom FROM {args.table}_lines
+          WHERE type LIKE '%ROADS%' AND style LIKE '%dasharray: 2 1%')
+        AS tl (geo)""")
+    print(f"Make all paved roads")
+    cursor.execute(f"""
+        INSERT INTO {args.table}_lines (id, name, type, wkb_geometry)
+        SELECT nextval('serial'), '-', 'Paved', tl.geo FROM (
+          SELECT (ST_Dump(ST_LineMerge(ST_Union(wkb_geometry)))).geom FROM {args.table}_lines
+          WHERE type LIKE '%ROADS%' AND style NOT LIKE '%dasharray:%')
+        AS tl (geo)""")
+
     conn.commit()
 
 if __name__ == '__main__':

@@ -116,28 +116,19 @@ This registers as *Sanity check failed*.
 
 ## Roads
 
-This extracts roads as they were intended from the SVG.  There are
-"cleaner" ways of doing this with *CG_StraightSkeleton*, but they seem
-to take an exorbitant amount of time and crashed my system.  At this
-point the runtime is about a minute, but it still produces some small
-artifacts.  I.e. some roads spring up that would be covered by a drawn
-road.  Cleaning this up requires another algorithm step.
+This extracts roads as they were intended from the SVG.  At this point
+the runtime is less than a minute.
 
     python geo_roads.py -t xyz -d user:password@dbname:host:port
 
-will connect towns (and such) and roads by modifying both lines and
-points tables.  The corrected roads appear as *type = 'ROUTE'*.  The
-algorithm:
+will connect towns (and such) and roads by modifying the lines and
+tables.  The final roads appear as *type = 'Trail|Unpaved|Paved'*, but
+the original is also modified.
 
 * connect all road end-points within distance *EPSG* to the road
-  network.
+  network. and all road points to locations within the same distance.
 
-* Simplify the road network a bit ([Visvalingam Whyatt](https://en.wikipedia.org/wiki/Visvalingam%E2%80%93Whyatt_algorithm))
-  using *EPSL* as corner-measure.
-
-* Remove short end segments from the road network.
-
-* Shift close locations onto road network.
+* Remove short end artifacts from the road network.
 
 > Runtime: 1 minute
 
