@@ -106,13 +106,12 @@ connected to the coastline; Arain & Tontury currently.
 
 This determines all lakes by looking at the fill color.  Elevation of
 lakes is not created, calculations are too complex at this point.
-This registers as *Sanity check failed*.
 
     python ~/bin/geo_lakes.py -t xyz -d user:password@dbname:host:port
 
 * Ignore pathological lakes smaller than *EPS*.
 
-> Runtime: 1 minute
+> Runtime: seconds
 
 ## Roads
 
@@ -155,3 +154,14 @@ otherwise.
 * The results are in the *xyz_polys* table, type prefixed with `VEG/`.
 
 > Runtime: 3 minutes
+
+## Rivers
+
+Determines rivers from shores to springs in iterations.  Rivers are
+created with type *River/n/Mouth:vertex*, where ** is the level (from
+0 at the coast) of detection.  *vertex* is start or end, depending on
+the orientation of the linestring.
+
+    python geo_rivers.py -t xyz -d user:password@dbname:host:port
+
+> Runtime: 2.5 minutes

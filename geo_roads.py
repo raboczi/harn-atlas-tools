@@ -112,12 +112,12 @@ def main():
         # Make adjacent line include new start point
         cursor.execute(f"""
             UPDATE {args.table}_lines
-            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
+            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, {EPSG*1.01})
             WHERE id = {pt_line[0]}""")
         # Make ending line end in new start point
         cursor.execute(f"""
             UPDATE {args.table}_lines
-            SET wkb_geometry = ST_SetPoint(wkb_geometry, 1, '{pt_line[2]}'::geometry)
+            SET wkb_geometry = ST_SetPoint(wkb_geometry, 0, '{pt_line[2]}'::geometry)
             WHERE id = {pt_line[1]}""")
     cursor.execute(f"""
         SELECT tl.id, tr.id, ST_ClosestPoint(tl.wkb_geometry, ST_EndPoint(tr.geo))
@@ -136,7 +136,7 @@ def main():
         # Make adjacent line include new end point
         cursor.execute(f"""
             UPDATE {args.table}_lines
-            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, 0)
+            SET wkb_geometry = ST_Snap(wkb_geometry, '{pt_line[2]}'::geometry, {EPSG*1.01})
             WHERE id = {pt_line[0]}""")
         # Make ending line end in new end point
         cursor.execute(f"""

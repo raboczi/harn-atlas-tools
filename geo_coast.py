@@ -8,7 +8,7 @@ import argparse
 import psycopg2
 
 EPSL = 0.007 # distance considered connected
-EPSB = 0.015 # buffer radius to weed out rivers
+EPSB = 0.008 # buffer radius to weed out rivers
 
 def shortest_connect(table, cursor, line_id):
     """
@@ -49,7 +49,7 @@ def extract_lake(table, cursor, name, height, inner_point):
     print(f"Special: {name}")
     cursor.execute(f"""
         UPDATE {table}
-        SET type = {height}, name = 'LAKE/{name}'
+        SET type = {height}, name = 'Lake/{name}'
         WHERE ST_IsClosed(wkb_geometry) AND type LIKE '%COASTLINE%' AND
           ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('{inner_point}'))""")
 
@@ -188,7 +188,7 @@ def main():
     make_valid_line(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
 
     # Lakes
-    # Make smaller to "dry" rivers than bigger to create intersection with reality => take boundary
+    # Make smaller to "dry" rivers then bigger to create intersection with reality => take boundary
     cursor.execute(f"""
         SELECT id, geo FROM (
           SELECT id, (ST_Dump(ST_Boundary(ST_Intersection(
