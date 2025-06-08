@@ -32,7 +32,7 @@ SCHEMA_LINES = {'geometry': 'LineString', 'properties':
                 {'id': 'int', 'type': 'str', 'len': 'int', 'name': 'str', 'svgid': 'str',
                  'style': 'str'}}
 SCHEMA_POINTS = {'geometry': 'Point', 'properties':
-                 {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str', 'style': 'str'}}
+                 {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str', 'style': 'str', 'angle': 'float'}}
 SCHEMA_POLYGONS = {'geometry': 'Polygon', 'properties':
                    {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str'}}
 NUM1 = r' ?,?(-?(?:[0-9]*\.?[0-9]+)|(?:[0-9]+))'
@@ -136,7 +136,7 @@ def parse_point(typ, elem, out_point_file):
     out_point_file.write({'geometry': mapping(pointstring),
                           'properties': {'id': SID.get_sid(), 'type': typ,
                                          'name': name, 'svgid': elem.attrib.get('id', '-'),
-                                         'style': style}})
+                                         'style': style, 'angle': math.degrees(math.atan2(mat[1], mat[0]))}})
 
 def parse_path(typ, elem, out_lines_file, out_point_file):
     """Parse path and write to file as line."""
@@ -214,7 +214,7 @@ def parse_path(typ, elem, out_lines_file, out_point_file):
                 out_point_file.write({'geometry': mapping(pointstring), 'properties':
                                       {'id': SID.get_sid(), 'type': 'special copy',
                                        'name': name, 'svgid': elem.attrib.get('id', '-'),
-                                       'style': '-'}})
+                                       'style': '-', 'angle': 0.0}})
                 return
             path = path[1:]
             while match := re.match(rf"{NUM6}", path):
