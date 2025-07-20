@@ -164,4 +164,7 @@ depending on the orientation of the linestring.
 
     python geo_rivers.py -t xyz -d user:password@dbname:host:port
 
-> Runtime: 2.5 minutes
+The script also takes a -T as option to execute some tests.  It is
+also not done yet, because it still "stops" at lakes.
+
+> Runtime: 5.5 minutes

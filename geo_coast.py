@@ -7,8 +7,8 @@ import sys
 import argparse
 import psycopg2
 
-EPSL = 0.007 # distance considered connected
-EPSB = 0.008 # buffer radius to weed out rivers
+EPSL = 0.004 # distance considered connected
+EPSB = 0.004 # buffer radius to weed out rivers
 
 def shortest_connect(table, cursor, line_id):
     """
@@ -63,7 +63,7 @@ def make_valid_polys(table, cursor, merge, line_id):
               SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
             AS lines (geo) ORDER BY ST_Length(geo) DESC""")
         merge = cursor.fetchall()
-        if merge[-1][1] > EPSB:
+        if merge[-1][1] > EPSL:
             break
         merge = [m[0] for m in merge[:-1]]
 
@@ -184,8 +184,25 @@ def main():
             ST_Covers(ST_MakePolygon(wkb_geometry), ST_GeomFromText('POINT(-15.3 40.33)')))
         AS lines (id, geo)""")
     poly = cursor.fetchall()
+    cursor.execute(f"""
+        SELECT wkb_geometry FROM {args.table}_lines WHERE id = {poly[0][0]}""")
+    with_rivers = cursor.fetchall()[0][0]
     verbosity(args.verbose, f"- {poly[0][0]}")
     make_valid_line(f"{args.table}_lines", cursor, [p[1] for p in poly], poly[0][0])
+    cursor.execute(f"""
+        SELECT (ST_Dump(ST_Intersection(
+          ST_Buffer(ST_MakePolygon(wkb_geometry), -{EPSB}),
+          ST_Difference(ST_Buffer(ST_MakePolygon(wkb_geometry), {EPSB}),
+            ST_MakePolygon('{with_rivers}'::geometry))))).geom
+        FROM {args.table}_lines
+        WHERE id = {poly[0][0]}""")
+    for river in cursor.fetchall():
+        print(f"- new area river")
+        cursor.execute(f"""
+            INSERT INTO {args.table}_lines (id, name, type, style, wkb_geometry)
+            VALUES (
+              nextval('serial'), 'temporary area river', '/STREAMS-LAKE/tmp-river', 'fill: #36868d',
+              ST_ExteriorRing('{river[0]}'::geometry))""")
 
     # Lakes
     # Make smaller to "dry" rivers then bigger to create intersection with reality => take boundary

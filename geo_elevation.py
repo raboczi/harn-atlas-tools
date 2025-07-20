@@ -46,7 +46,7 @@ def make_valid(table, cursor, merge, line_id):
     while multi_line:
         sql_array = "'" + "'::geometry, '".join(merge) + "'::geometry"
         cursor.execute(f"""
-            SELECT ST_AsText(geo) FROM (
+            SELECT geo FROM (
               SELECT (ST_Dump(ST_LineMerge(ST_Union(ARRAY[{sql_array}])))).geom)
             AS lines (geo) ORDER BY ST_Length(geo) DESC""")
         merge = cursor.fetchall()

@@ -477,7 +477,7 @@ def main():
                         required=False)
     parser.add_argument('-o', '--output', dest='outfile', help='output file name',
                         required=True)
-    parser.add_argument('-t', '--test', action='store_true', help='output file name',
+    parser.add_argument('-t', '--test', action='store_true', help='run tests instead',
                         required=False)
     args = parser.parse_args()
 
