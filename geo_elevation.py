@@ -95,10 +95,10 @@ def label_rings(verbose, table, cursor, line):
             if verbose:
                 print(f"- - - fix {check} with {elev}")
             if f"{elev}" != check[1] and "CONTOURS" not in check[1]:
-                print(f"- - - errorneous fix {check} with {elev}")
+                print(f"- - - erroneous fix {check} with {elev}")
             cursor.execute(f"""
                 UPDATE {table}
-                SET type = '{elev}'
+                SET elevation = {elev}
                 WHERE id = {check[0]} AND type LIKE '%CONTOURS%'""")
 
 def main():
@@ -225,8 +225,8 @@ def main():
     # Convert to polygons
     print("Turn closed lines into polygons")
     cursor.execute(f"""
-        INSERT INTO {args.table}_polys (id, name, type, wkb_geometry)
-        SELECT nextval('serial'), 'elevation', type, ST_MakePolygon(wkb_geometry)
+        INSERT INTO {args.table}_polys (id, name, type, wkb_geometry, elevation)
+        SELECT nextval('serial'), name, type, ST_MakePolygon(wkb_geometry), elevation
         FROM {args.table}_lines
         WHERE ST_IsClosed(wkb_geometry)""")
 
