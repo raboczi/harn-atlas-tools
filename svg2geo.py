@@ -34,7 +34,7 @@ SCHEMA_LINES = {'geometry': 'LineString', 'properties':
 SCHEMA_POINTS = {'geometry': 'Point', 'properties':
                  {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str', 'style': 'str', 'angle': 'float'}}
 SCHEMA_POLYGONS = {'geometry': 'Polygon', 'properties':
-                   {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str'}}
+                   {'id': 'int', 'type': 'str', 'name': 'str', 'svgid': 'str', 'style': 'str'}}
 NUM1 = r' ?,?(-?(?:[0-9]*\.?[0-9]+)|(?:[0-9]+))'
 NUM2 = NUM1 + NUM1
 NUM4 = NUM2 + NUM2
@@ -138,11 +138,14 @@ def parse_point(typ, elem, out_point_file):
                                          'name': name, 'svgid': elem.attrib.get('id', '-'),
                                          'style': style, 'angle': math.degrees(math.atan2(mat[1], mat[0]))}})
 
-def parse_path(typ, elem, out_lines_file, out_point_file):
-    """Parse path and write to file as line."""
+def parse_path(typ, elem, out_lines_file, out_point_file, out_polygon_file):
+    """Parse path and write to file as a polygon if filled, or a line otherwise."""
+    style = STYLES[elem.attrib.get('class', '-')]
+    is_filled = bool(re.match(r".*fill: (#|url)", style))
     x_c = y_c = x0_c = y0_c = xb_c = yb_c = 0
     mat = [1, 0, 0, 1, 0, 0]
     line = []
+    lines = []
     mat = attr2transform(elem.attrib.get('transform', '-'))
     name = get_data_name(elem)
     typ += '/' + name
@@ -156,6 +159,9 @@ def parse_path(typ, elem, out_lines_file, out_point_file):
             y_c = float(match.group(2))
             xb_c = x0_c = x_c
             yb_c = y0_c = y_c
+            if len(line) > 1:
+                lines.append(line)
+            line = []
             line.append(transform(mat, x_c, y_c))
             path = re.sub(rf"M{NUM2}", '', path, 1)
         elif path.startswith('L'):
@@ -200,16 +206,11 @@ def parse_path(typ, elem, out_lines_file, out_point_file):
         elif path.startswith('Z'):
             line.append(transform(mat, x0_c, y0_c))
             path = path[1:]
-            out_line(line, typ, name, out_lines_file, elem)
-            line = []
         elif path.startswith('c'):
             # Specific copy symbol
             if "c0,1.24-1.01,2.25-2.25,2.25s-2.25-1.01-2.25-2.25,1.01-2.25,2.25-2.25,2.25,1.01,2.25,2.25Z" in path:
                 print(f"special path for: {name}")
-                x_c += 5.5
-                y_c += 7.5
-                w_c = h_c = 4.5
-                pointstring = Point(transform(mat, x_c + w_c/2., y_c + h_c/2.))
+                pointstring = Point(transform(mat, x_c - 1.24, y_c))
                 SID.inc_sid()
                 out_point_file.write({'geometry': mapping(pointstring), 'properties':
                                       {'id': SID.get_sid(), 'type': 'special copy',
@@ -315,7 +316,25 @@ def parse_path(typ, elem, out_lines_file, out_point_file):
         else:
             print(f"broken path:{path}:")
             path = ""
-    out_line(line, typ, name, out_lines_file, elem)
+    lines.append(line)
+    if is_filled:
+        out_polygon(lines, typ, name, out_polygon_file, elem)
+    else:
+        for line in lines:
+            out_line(line, typ, name, out_lines_file, elem)
+
+def out_polygon(lines, typ, name, out_polygon_file, elem):
+    if len(lines[0]) > 2:
+        polygon = Polygon(lines[0], list(filter(lambda n: len(n) >= 3, lines[1:])))
+        SID.inc_sid()
+        out_polygon_file.write({
+            'geometry': mapping(polygon),
+            'properties': {
+                'id': SID.get_sid(),
+                'type': typ,
+                'name': name,
+                'svgid': elem.attrib.get('id', '-'),
+                'style': STYLES[elem.attrib.get('class', '-')]}})
 
 def out_line(line, typ, name, out_lines_file, elem):
     """Terminate a line in path."""
@@ -336,7 +355,21 @@ def parse_polygon(typ, elem, out_polygon_file):
     name = get_data_name(elem)
     typ += '/' + name
     mat = attr2transform(elem.attrib.get('transform', '-'))
-    points = elem.attrib['points'].strip(' ').replace(',', ' ').split(' ')
+    if elem.tag.endswith('rect'):
+        x_c = float(elem.attrib['x'])
+        y_c = float(elem.attrib['y'])
+        w_c = float(elem.attrib['width'])
+        h_c = float(elem.attrib['height'])
+        points = [x_c,       y_c,
+                  x_c + w_c, y_c,
+                  x_c + w_c, y_c + h_c,
+                  x_c,       y_c + h_c,
+                  x_c,       y_c]
+    elif elem.tag.endswith('polygon'):
+        points = elem.attrib['points'].strip(' ').replace(',', ' ').split(' ')
+    else:
+        print(f"Unexpected polygon tag: {elem.tag}")
+        return
     while len(points) > 1:
         x_c = float(points[0])
         y_c = float(points[1])
@@ -348,7 +381,8 @@ def parse_polygon(typ, elem, out_polygon_file):
         SID.inc_sid()
         out_polygon_file.write({'geometry': mapping(polygon),
                                 'properties': {'id': SID.get_sid(), 'type': typ,
-                                               'name': name, 'svgid': elem.attrib.get('id', '-')}})
+                                               'name': name, 'svgid': elem.attrib.get('id', '-'),
+                                               'style': STYLES[elem.attrib.get('class', '-')]}})
     else:
         print(f"pathological:{SID.get_sid()}")
 
@@ -374,6 +408,16 @@ def parse_line(typ, elem, out_lines_file):
         y2_c = float(elem.attrib['y2'])
         typ += '/' + name
         line = [transform(mat, x1_c, y1_c), transform(mat, x2_c, y2_c)]
+    elif elem.tag.endswith('rect'):
+        x_c = float(elem.attrib['x'])
+        y_c = float(elem.attrib['y'])
+        w_c = float(elem.attrib['width'])
+        h_c = float(elem.attrib['height'])
+        line = [transform(mat, x_c,       y_c),
+                transform(mat, x_c + w_c, y_c),
+                transform(mat, x_c + w_c, y_c + h_c),
+                transform(mat, x_c,       y_c + h_c),
+                transform(mat, x_c,       y_c)]
     else:
         print(f"{elem.tag} shouldn't be here")
         return
@@ -425,7 +469,7 @@ def parse(args, name, root, out_polygon_file, out_point_file, out_lines_file):
         if elem.tag.endswith('polygon'):
             parse_polygon(name, elem, out_polygon_file)
         elif elem.tag.endswith('path'):
-            parse_path(name, elem, out_lines_file, out_point_file)
+            parse_path(name, elem, out_lines_file, out_point_file, out_polygon_file)
         elif elem.tag.endswith('polyline'):
             parse_line(name, elem, out_lines_file)
         elif elem.tag.endswith('line'):
@@ -433,7 +477,15 @@ def parse(args, name, root, out_polygon_file, out_point_file, out_lines_file):
         elif elem.tag.endswith('use'):
             parse_point(name, elem, out_point_file)
         elif elem.tag.endswith('rect'):
-            parse_point(name, elem, out_point_file)
+            if float(elem.attrib.get('width', 0)) > 20:
+                style = STYLES[elem.attrib.get('class', '-')]
+                is_filled = bool(re.match(r".*fill: (#|url)", style))
+                if is_filled:
+                    parse_polygon(name, elem, out_polygon_file)
+                else:
+                    parse_line(name, elem, out_lines_file)
+            else:
+                parse_point(name, elem, out_point_file)
         elif elem.tag.endswith('circle'):
             parse_point(name, elem, out_point_file)
         elif elem.tag.endswith('defs'):
@@ -522,7 +574,7 @@ def main():
         with fiona.open("unittest.json", 'w', 'GeoJSON', schema=SCHEMA_LINES,
                         crs=CRS.from_epsg(4326)) as json_test_out_file:
             elem = ElementTree.fromstring(svg)[0]
-            parse_path("type", elem, json_test_out_file, None)
+            parse_path("type", elem, json_test_out_file, None, None)
 
     else:
         root = ElementTree.parse(args.infile).getroot()
